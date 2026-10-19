@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Default accent (violet). ThemeEffect overrides these on load and
+       whenever the user changes their accentColor preference. */
+    --accent-1: #8B5CF6;
+    --accent-2: #EC4899;
+    --accent-glow: rgba(139, 92, 246, 0.35);
+  }
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-base-950 text-slate-200 font-body antialiased;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(139, 92, 246, 0.10), transparent 40%),
+      radial-gradient(circle at 85% 10%, rgba(34, 211, 238, 0.08), transparent 40%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-white;
+  }
+  ::selection {
+    @apply bg-neon-violet/40 text-white;
+  }
+  /* Thin neon-tinted scrollbar to stay on-brand instead of default grey bars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.35);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.55);
+  }
+}
+
+@layer components {
+  /* Base glass panel used by every card in the app - centralizes the glassmorphism
+     recipe (blur, translucency, border, shadow) so it never has to be re-declared. */
+  .glass-panel {
+    @apply relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-panel;
+  }
+  .glass-panel-hover {
+    @apply transition-all duration-300 hover:border-white/[0.16] hover:shadow-glow;
+  }
+  .neon-text-violet {
+    @apply text-transparent bg-clip-text bg-grad-violet-pink;
+  }
+  .neon-text-cyan {
+    @apply text-transparent bg-clip-text bg-grad-blue-violet;
+  }
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-neon-violet/70 focus-visible:ring-offset-2 focus-visible:ring-offset-base-950;
+  }
+}

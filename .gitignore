@@ -1,0 +1,50 @@
+# Secrets — never commit. Use .env.example as the template.
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Model artefacts and generated metrics (large, environment-specific)
+services/ml/artifacts/
+*.joblib
+*.pkl
+backend/data/*.json
+apps/api/data/*.json
+
+# Captures and datasets (may contain sensitive traffic)
+*.pcap
+*.pcapng
+lab/captures/
+data/raw/
+
+# Archives (the original project zip lives at the root and stays out of git)
+*.zip
+
+# Logs and OS / editor noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Playwright
+test-results/
+playwright-report/

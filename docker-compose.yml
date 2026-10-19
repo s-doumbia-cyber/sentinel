@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+
+  backend:
+    build: ./backend
+    ports: ["4000:4000"]
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/cyber_threat_dashboard
+      - JWT_SECRET=demo-secret-change-in-prod
+      - CLIENT_ORIGIN=http://localhost:5173
+      - PORT=4000
+    depends_on: [mongo]
+
+  frontend:
+    build: ./frontend
+    ports: ["5173:5173"]
+    environment:
+      - VITE_API_PROXY_TARGET=http://backend:4000
+    depends_on: [backend]
+
+volumes:
+  mongo-data:
