@@ -48,3 +48,6 @@ Thumbs.db
 # Playwright
 test-results/
 playwright-report/
+
+# Full CICIDS2017 CSVs for training (large, third-party data)
+data/cicids2017/

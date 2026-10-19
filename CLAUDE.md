@@ -152,6 +152,15 @@ Scripts must be cross-platform (Windows PowerShell and Linux): no bash-only one-
 - Reports: Excel/PDF are generated client-side with minimal content.
 - `dist/` and `.env` exist in the working tree: both must be git-ignored.
 
+### 13b. State after the 2026-10-20 session
+
+The legacy code was migrated: `apps/api` (TypeScript, tenancy, rotating refresh cookie, RBAC, audit),
+`apps/web` (rebuilt on the design system), `packages/shared`, `services/ml` (FastAPI, training CLI,
+SHAP). Labels are ground truth only; verdicts come from the ML service. Ticked roadmap items carry
+a ✅ note, partial ones a ⏳ note; read the Decisions log in `ROADMAP.md` before changing the data
+model or the model registry. Existing user data needs `npm run migrate:legacy` (dry run first; never
+run it without the owner's go-ahead). Commands in §6 work except `seed:demo` and `test:e2e` (not built).
+
 ## 14. Lessons learned (do not repeat these bugs)
 
 1. **Transparent overlays bleed content.** Dropdowns, drawers and popovers with `bg-*/95` plus backdrop blur let bright numbers show through and made text unreadable. Overlays must use a solid surface token.
@@ -164,6 +173,9 @@ Scripts must be cross-platform (Windows PowerShell and Linux): no bash-only one-
 8. **Tailwind utility conflicts depend on CSS order,** not class order. Use variants or `cn()` merging, not "last class wins" assumptions.
 9. **CICIDS2017 has known label and feature errors** (Engelen et al. 2021, Liu et al. 2022). Document handling and never present benchmark accuracy as production performance.
 10. **Models trained on a 2017 testbed do not transfer to other networks.** Hence the lab dataset and the two-schema design in `docs/ML_AND_DETECTION.md`.
+11. **CICIDS2017 timestamps are day/month/year.** The legacy parser read month/day ("4/7/2017" became April 7) and silently used "now" when parsing failed.
+12. **OpenMP + joblib in the ML container can busy-spin forever.** Keep `OMP_NUM_THREADS=1` in the image unless you re-test training inside Docker.
+13. **The Write/Edit tools turn `\uXXXX` escapes into literal characters.** Write escapes in source files with a script when the escape itself matters (e.g. a BOM regex).
 
 ## 15. Environment notes
 
