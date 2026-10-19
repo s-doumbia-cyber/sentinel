@@ -14,7 +14,7 @@ import {
   verifyPassword,
 } from "../../lib/crypto.js";
 import { AppError } from "../../lib/errors.js";
-import { AuthSession, Membership, Org, User, normalizeLanguage } from "../../models/identity.js";
+import { AuthSession, Membership, Org, User, normalizeAccent, normalizeLanguage } from "../../models/identity.js";
 import { writeAudit } from "../audit/audit.service.js";
 
 /** Two tabs refreshing at the same moment must not be mistaken for token theft. */
@@ -32,7 +32,14 @@ interface UserLike {
   _id: Types.ObjectId;
   name: string;
   email: string;
-  preferences?: { emailAlerts?: boolean | null; pushAlerts?: boolean | null; language?: string | null; accentColor?: string | null } | null;
+  preferences?: {
+    emailAlerts?: boolean | null;
+    pushAlerts?: boolean | null;
+    language?: string | null;
+    accentColor?: string | null;
+    theme?: string | null;
+    density?: string | null;
+  } | null;
 }
 
 export function toUserResponse(user: UserLike) {
@@ -45,7 +52,9 @@ export function toUserResponse(user: UserLike) {
       emailAlerts: prefs.emailAlerts ?? true,
       pushAlerts: prefs.pushAlerts ?? true,
       language: normalizeLanguage(prefs.language),
-      accentColor: prefs.accentColor ?? "violet",
+      accentColor: normalizeAccent(prefs.accentColor),
+      theme: prefs.theme === "light" || prefs.theme === "system" ? prefs.theme : "dark",
+      density: prefs.density === "compact" ? "compact" : "comfortable",
     },
   };
 }

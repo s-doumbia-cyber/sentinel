@@ -22,10 +22,12 @@ export function buildFlowFilter(orgId: Types.ObjectId, q: Partial<FlowQuery & St
   if (q.protocol) filter.protocol = q.protocol;
   if (q.sourceKind) filter.sourceKind = q.sourceKind;
   if (q.datasetId) filter.datasetId = new mongoose.Types.ObjectId(q.datasetId);
-  if (q.verdict === "unscored") filter.scoreStatus = { $ne: "scored" };
+  if (q.verdict === "unscored") filter.scoreStatus = "pending";
+  else if (q.verdict === "error") filter.scoreStatus = "error";
   else if (q.verdict === "malicious") Object.assign(filter, { scoreStatus: "scored", "scored.label": { $ne: "Normal" } });
   else if (q.verdict) Object.assign(filter, { scoreStatus: "scored", "scored.label": q.verdict });
   if (q.severity) Object.assign(filter, { scoreStatus: "scored", "scored.severity": q.severity });
+  if (q.needsReview) Object.assign(filter, { scoreStatus: "scored", "scored.needsReview": true });
   return filter;
 }
 

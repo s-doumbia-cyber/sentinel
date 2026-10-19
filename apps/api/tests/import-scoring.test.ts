@@ -232,6 +232,9 @@ describe("stats", () => {
     expect(second.body.nextCursor).toBeNull();
     const ids = new Set([...first.body.items, ...second.body.items].map((f: { id: string }) => f.id));
     expect(ids.size).toBe(7);
+    expect((await request(sa.app).get(`${API}/flows?verdict=unscored`).set(auth)).body.items).toHaveLength(0);
+    expect((await request(sa.app).get(`${API}/flows?verdict=error`).set(auth)).body.items).toHaveLength(0);
+    expect((await request(sa.app).get(`${API}/flows?needsReview=true`).set(auth)).body.items).toHaveLength(0);
     const malicious = await request(sa.app).get(`${API}/flows?verdict=malicious`).set(auth);
     expect(malicious.body.items).toHaveLength(2);
     expect(malicious.body.items[0].groundTruthLabel).toBe("Normal");

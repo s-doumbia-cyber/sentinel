@@ -1,81 +1,47 @@
 import type { Config } from "tailwindcss";
 
-// Centralized design tokens. Every color/spacing/radius decision in the app
-// should reference these values instead of hardcoding magic numbers/hex codes.
+// Every colour is a CSS variable defined in src/index.css (docs/DESIGN_SYSTEM.md §2).
+const rgb = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
-  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        base: {
-          950: "#05060A", // deepest background
-          900: "#0B0F19", // panel background
-          800: "#10141F",
-          700: "#161B29",
+        bg: { 0: rgb("bg-0"), 1: rgb("bg-1") },
+        surface: { 1: rgb("surface-1"), 2: rgb("surface-2"), 3: rgb("surface-3") },
+        fg: { 1: rgb("text-1"), 2: rgb("text-2"), 3: rgb("text-3") },
+        accent: { DEFAULT: rgb("accent"), fg: rgb("accent-fg"), contrast: rgb("accent-contrast") },
+        sev: {
+          critical: rgb("sev-critical"),
+          high: rgb("sev-high"),
+          medium: rgb("sev-medium"),
+          low: rgb("sev-low"),
+          info: rgb("sev-info"),
+          ok: rgb("sev-ok"),
         },
-        glass: {
-          border: "rgba(255,255,255,0.08)",
-          borderStrong: "rgba(255,255,255,0.14)",
-          fill: "rgba(255,255,255,0.04)",
-        },
-        neon: {
-          violet: "#8B5CF6",
-          violetStrong: "#A855F7",
-          pink: "#EC4899",
-          pinkStrong: "#F0399B",
-          blue: "#3B82F6",
-          cyan: "#22D3EE",
-        },
-        severity: {
-          critical: "#F0399B",
-          high: "#EC4899",
-          medium: "#A855F7",
-          low: "#22D3EE",
-          info: "#3B82F6",
-          safe: "#34D399",
-        },
+        kind: { live: rgb("kind-live"), replay: rgb("kind-replay"), imported: rgb("kind-imported"), demo: rgb("kind-demo") },
       },
+      borderColor: { subtle: "var(--border-subtle)", DEFAULT: "var(--border)", strong: "var(--border-strong)" },
+      backgroundColor: { "accent-soft": "var(--accent-soft)" },
       fontFamily: {
-        display: ["Sora", "system-ui", "sans-serif"],
-        body: ["Inter", "system-ui", "sans-serif"],
-        mono: ["Space Grotesk", "monospace"],
+        sans: ['"Inter Variable"', "Inter", "system-ui", "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
-      spacing: {
-        px8: "8px",
+      fontSize: {
+        caption: ["12px", "16px"],
+        small: ["13px", "20px"],
+        body: ["14px", "22px"],
+        h3: ["16px", "24px"],
+        h2: ["20px", "28px"],
+        h1: ["24px", "32px"],
+        kpi: ["28px", "36px"],
       },
-      borderRadius: {
-        "2xl": "1rem",
-        "3xl": "1.5rem",
-      },
-      boxShadow: {
-        glow: "0 0 24px var(--accent-glow, rgba(139, 92, 246, 0.35))",
-        glowPink: "0 0 24px rgba(236, 72, 153, 0.35)",
-        glowCyan: "0 0 24px rgba(34, 211, 238, 0.35)",
-        panel: "0 8px 32px rgba(0,0,0,0.45)",
-      },
-      backgroundImage: {
-        // Reads from --accent-1/--accent-2, set at runtime by ThemeEffect
-        // based on the user's saved accentColor preference (defaults match
-        // the original violet->pink look — see index.css for the presets).
-        "grad-violet-pink": "linear-gradient(135deg, var(--accent-1, #8B5CF6) 0%, var(--accent-2, #EC4899) 100%)",
-        "grad-blue-violet": "linear-gradient(135deg, #22D3EE 0%, #8B5CF6 100%)",
-        "grad-radial-glow": "radial-gradient(circle at 50% 0%, rgba(139,92,246,0.18), transparent 60%)",
-      },
-      keyframes: {
-        "fade-slide-up": {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "pulse-glow": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.55" },
-        },
-      },
-      animation: {
-        "fade-slide-up": "fade-slide-up 0.5s ease-out both",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-      },
+      borderRadius: { sm: "6px", md: "8px", lg: "12px", xl: "16px" },
+      boxShadow: { e1: "var(--shadow-e1)", e2: "var(--shadow-e2)", e3: "var(--shadow-e3)" },
+      transitionTimingFunction: { enter: "cubic-bezier(0.2, 0, 0, 1)", exit: "cubic-bezier(0.4, 0, 1, 1)" },
+      transitionDuration: { fast: "120ms", base: "200ms", slow: "320ms" },
+      maxWidth: { content: "1440px" },
     },
   },
   plugins: [],

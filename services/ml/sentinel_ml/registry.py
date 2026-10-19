@@ -94,6 +94,11 @@ class Registry:
             for meta_path in sorted(self.dir.glob("*/meta.json")):
                 try:
                     meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                    metrics_path = meta_path.parent / "metrics.json"
+                    if "groupAware" not in meta and metrics_path.is_file():
+                        # Surface the leakage check next to the headline numbers, not only in the card.
+                        g = json.loads(metrics_path.read_text(encoding="utf-8")).get("groupAware", {})
+                        meta["groupAware"] = {k: g.get(k) for k in ("status", "reason", "macroF1", "testRows", "groups", "perClass", "classesMissingFromTest", "classesMissingFromTrain") if k in g}
                     warnings, blocking = version_warnings(meta.get("libVersions", {}))
                     entry = ModelEntry(meta_path.parent, meta, warnings, blocking)
                     models[entry.version] = entry

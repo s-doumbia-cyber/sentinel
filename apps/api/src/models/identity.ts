@@ -1,5 +1,5 @@
 import mongoose, { Schema, type InferSchemaType, type Types } from "mongoose";
-import { ACCENTS, LANGUAGES, ROLES } from "@sentinel/shared";
+import { ACCENTS, DENSITIES, LANGUAGES, ROLES, THEMES } from "@sentinel/shared";
 
 // ---- Users ------------------------------------------------------------------
 
@@ -19,6 +19,11 @@ export function normalizeLanguage(value: unknown): (typeof LANGUAGES)[number] {
   return "en";
 }
 
+/** The legacy UI offered a "pink" accent that the design system replaced with emerald. */
+export function normalizeAccent(value: unknown): (typeof ACCENTS)[number] {
+  return typeof value === "string" && (ACCENTS as readonly string[]).includes(value) ? (value as (typeof ACCENTS)[number]) : "violet";
+}
+
 const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
@@ -29,7 +34,9 @@ const userSchema = new Schema(
       emailAlerts: { type: Boolean, default: true },
       pushAlerts: { type: Boolean, default: true },
       language: { type: String, default: "en", set: normalizeLanguage },
-      accentColor: { type: String, enum: ACCENTS, default: "violet" },
+      accentColor: { type: String, enum: ACCENTS, default: "violet", set: normalizeAccent },
+      theme: { type: String, enum: THEMES, default: "dark" },
+      density: { type: String, enum: DENSITIES, default: "comfortable" },
     },
   },
   { timestamps: true },

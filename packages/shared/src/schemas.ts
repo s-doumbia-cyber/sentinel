@@ -42,7 +42,9 @@ export const changePasswordBodySchema = z.object({
 });
 
 export const LANGUAGES = ["en", "fr", "hi"] as const;
-export const ACCENTS = ["violet", "cyan", "pink"] as const;
+export const ACCENTS = ["violet", "cyan", "emerald"] as const;
+export const THEMES = ["dark", "light", "system"] as const;
+export const DENSITIES = ["comfortable", "compact"] as const;
 
 export const updateMeBodySchema = z
   .object({
@@ -53,6 +55,8 @@ export const updateMeBodySchema = z
         pushAlerts: z.boolean().optional(),
         language: z.enum(LANGUAGES).optional(),
         accentColor: z.enum(ACCENTS).optional(),
+        theme: z.enum(THEMES).optional(),
+        density: z.enum(DENSITIES).optional(),
       })
       .strict()
       .optional(),
@@ -74,9 +78,13 @@ export const flowQuerySchema = z.object({
   protocol: z.enum(["TCP", "UDP", "ICMP", "OTHER"]).optional(),
   sourceKind: sourceKindSchema.optional(),
   datasetId: objectIdSchema.optional(),
-  /** Filter on the model verdict. `unscored` lists flows the model has not scored. */
-  verdict: z.union([attackClassSchema, z.literal("unscored"), z.literal("malicious")]).optional(),
+  /**
+   * Filter on the model verdict: a class, `malicious` (any non-Normal verdict),
+   * `unscored` (waiting for a model) or `error` (scoring failed).
+   */
+  verdict: z.union([attackClassSchema, z.enum(["unscored", "malicious", "error"])]).optional(),
   severity: severitySchema.optional(),
+  needsReview: z.enum(["true"]).optional(),
 });
 export type FlowQuery = z.infer<typeof flowQuerySchema>;
 
@@ -88,6 +96,7 @@ export const statsQuerySchema = flowQuerySchema.pick({
   protocol: true,
   verdict: true,
   severity: true,
+  needsReview: true,
 });
 export type StatsQuery = z.infer<typeof statsQuerySchema>;
 

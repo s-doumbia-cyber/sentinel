@@ -2,63 +2,193 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens (docs/DESIGN_SYSTEM.md §2). Colours are "r g b" triplets so
+ * Tailwind can apply alpha. Components never use raw hex values.
+ *
+ * Deviation, documented in ROADMAP.md decisions: filled buttons use
+ * --accent-solid, a darker step of the accent, because white text on #8B5CF6
+ * is 4.2:1 and fails WCAG AA for 14 px text.
+ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: 7 9 16;
+  --bg-1: 11 15 25;
+  --surface-1: 17 23 38;
+  --surface-2: 23 32 51;
+  --surface-3: 30 42 66;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-1: 232 235 244;
+  --text-2: 169 178 199;
+  --text-3: 124 135 163;
+
+  --accent: 139 92 246;
+  --accent-fg: 167 139 250;
+  --accent-solid: 124 58 237;
+  --accent-contrast: 255 255 255;
+  --accent-soft: rgba(139, 92, 246, 0.14);
+
+  --sev-critical: 244 63 94;
+  --sev-high: 251 146 60;
+  --sev-medium: 250 204 21;
+  --sev-low: 56 189 248;
+  --sev-info: 148 163 184;
+  --sev-ok: 52 211 153;
+  --sevfg-critical: 251 113 133;
+  --sevfg-high: 253 186 116;
+  --sevfg-medium: 253 224 71;
+  --sevfg-low: 125 211 252;
+  --sevfg-info: 203 213 225;
+  --sevfg-ok: 110 231 183;
+
+  --kind-live: 52 211 153;
+  --kind-replay: 34 211 238;
+  --kind-imported: 148 163 184;
+  --kind-demo: 251 191 36;
+
+  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-e2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-e3: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --row-py: 10px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: 238 240 246;
+  --bg-1: 246 247 251;
+  --surface-1: 255 255 255;
+  --surface-2: 240 242 248;
+  --surface-3: 232 236 245;
+  --border-subtle: #e6e9f1;
+  --border: #d9deea;
+  --border-strong: #c3cadb;
+  --text-1: 15 23 42;
+  --text-2: 71 85 105;
+  --text-3: 100 116 139;
+
+  --accent: 124 58 237;
+  --accent-fg: 109 40 217;
+  --accent-solid: 124 58 237;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+
+  /* Darker text steps so severity labels keep 4.5:1 on light tints. */
+  --sevfg-critical: 190 18 60;
+  --sevfg-high: 194 65 12;
+  --sevfg-medium: 161 98 7;
+  --sevfg-low: 3 105 161;
+  --sevfg-info: 71 85 105;
+  --sevfg-ok: 4 120 87;
+
+  --shadow-e1: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-e2: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-e3: 0 24px 64px rgba(15, 23, 42, 0.18);
+}
+
+[data-accent="cyan"] {
+  --accent: 34 211 238;
+  --accent-fg: 103 232 249;
+  --accent-solid: 34 211 238;
+  --accent-contrast: 7 9 16;
+  --accent-soft: rgba(34, 211, 238, 0.14);
+}
+[data-theme="light"][data-accent="cyan"] {
+  --accent: 8 145 178;
+  --accent-fg: 14 116 144;
+  --accent-solid: 14 116 144;
+  --accent-contrast: 255 255 255;
+  --accent-soft: rgba(8, 145, 178, 0.1);
+}
+[data-accent="emerald"] {
+  --accent: 52 211 153;
+  --accent-fg: 110 231 183;
+  --accent-solid: 52 211 153;
+  --accent-contrast: 7 9 16;
+  --accent-soft: rgba(52, 211, 153, 0.14);
+}
+[data-theme="light"][data-accent="emerald"] {
+  --accent: 5 150 105;
+  --accent-fg: 4 120 87;
+  --accent-solid: 4 120 87;
+  --accent-contrast: 255 255 255;
+  --accent-soft: rgba(5, 150, 105, 0.1);
+}
+
+[data-density="compact"] {
+  --row-py: 6px;
+}
+
 @layer base {
-  :root {
-    /* Default accent (violet). ThemeEffect overrides these on load and
-       whenever the user changes their accentColor preference. */
-    --accent-1: #8B5CF6;
-    --accent-2: #EC4899;
-    --accent-glow: rgba(139, 92, 246, 0.35);
-  }
-  html {
-    @apply scroll-smooth;
+  html,
+  body,
+  #root {
+    height: 100%;
   }
   body {
-    @apply bg-base-950 text-slate-200 font-body antialiased;
-    background-image:
-      radial-gradient(circle at 15% 0%, rgba(139, 92, 246, 0.10), transparent 40%),
-      radial-gradient(circle at 85% 10%, rgba(34, 211, 238, 0.08), transparent 40%);
-    background-attachment: fixed;
+    @apply bg-bg-1 text-fg-1 font-sans text-body antialiased;
   }
-  h1, h2, h3, h4 {
-    @apply font-display tracking-tight text-white;
+  /* Tabular figures for every number (§2.5). */
+  .tnum,
+  table,
+  [data-numeric] {
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
   }
   ::selection {
-    @apply bg-neon-violet/40 text-white;
-  }
-  /* Thin neon-tinted scrollbar to stay on-brand instead of default grey bars */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.35);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.55);
+    background: var(--accent-soft);
   }
 }
 
-@layer components {
-  /* Base glass panel used by every card in the app - centralizes the glassmorphism
-     recipe (blur, translucency, border, shadow) so it never has to be re-declared. */
-  .glass-panel {
-    @apply relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-panel;
+@layer utilities {
+  .bg-accent-solid {
+    background-color: rgb(var(--accent-solid));
   }
-  .glass-panel-hover {
-    @apply transition-all duration-300 hover:border-white/[0.16] hover:shadow-glow;
+  .text-sevfg-critical {
+    color: rgb(var(--sevfg-critical));
   }
-  .neon-text-violet {
-    @apply text-transparent bg-clip-text bg-grad-violet-pink;
+  .text-sevfg-high {
+    color: rgb(var(--sevfg-high));
   }
-  .neon-text-cyan {
-    @apply text-transparent bg-clip-text bg-grad-blue-violet;
+  .text-sevfg-medium {
+    color: rgb(var(--sevfg-medium));
   }
-  .focus-ring {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-neon-violet/70 focus-visible:ring-offset-2 focus-visible:ring-offset-base-950;
+  .text-sevfg-low {
+    color: rgb(var(--sevfg-low));
+  }
+  .text-sevfg-info {
+    color: rgb(var(--sevfg-info));
+  }
+  .text-sevfg-ok {
+    color: rgb(var(--sevfg-ok));
+  }
+  .py-row {
+    padding-top: var(--row-py);
+    padding-bottom: var(--row-py);
+  }
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }
