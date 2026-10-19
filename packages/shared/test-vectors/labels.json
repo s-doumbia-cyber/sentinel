@@ -1,0 +1,33 @@
+{
+  "description": "Label normalisation vectors shared by the TypeScript (packages/shared) and Python (services/ml) implementations. null means: unknown, skip/flag, never guess.",
+  "cases": [
+    ["BENIGN", "Normal"],
+    ["Normal", "Normal"],
+    ["DDoS", "DDoS"],
+    ["DoS Hulk", "DoSHulk"],
+    ["DoS GoldenEye", "DoSGoldenEye"],
+    ["DoS slowloris", "DoSSlowloris"],
+    ["DoS Slowhttptest", "DoSSlowloris"],
+    ["FTP-Patator", "FTPPatator"],
+    ["SSH-Patator", "SSHPatator"],
+    ["PortScan", "PortScan"],
+    ["Bot", "Botnet"],
+    ["Infiltration", "Infiltration"],
+    ["Heartbleed", "Heartbleed"],
+    ["Web Attack � Brute Force", "WebAttack"],
+    ["Web Attack – Brute Force", "WebAttack"],
+    ["Web Attack – XSS", "XSS"],
+    ["Web Attack � Sql Injection", "SQLInjection"],
+    ["  benign  ", "Normal"],
+    ["DoSHulk", "DoSHulk"],
+    ["SQLInjection", "SQLInjection"],
+    ["", null],
+    ["   ", null],
+    ["Unknown", null],
+    ["robot", null],
+    ["ftp-server", null],
+    ["Infiltrator", null],
+    ["DoS", null],
+    ["Web Attack – Phishing", null]
+  ]
+}

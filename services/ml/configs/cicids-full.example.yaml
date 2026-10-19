@@ -1,0 +1,23 @@
+# Template for the full CICIDS2017 MachineLearningCVE CSVs (not in the repo).
+# Copy the eight day files into data/cicids2017/ (git-ignored) or change the glob.
+name: CICIDS2017 benchmark (all days)
+version_prefix: cicids-bench
+schema: cicids2017-v1
+kind: benchmark
+description: >-
+  CICIDS2017 MachineLearningCVE day files. Benchmark only: the 2017 testbed
+  has known label errors and does not represent your network.
+data:
+  csv:
+    - ../../../data/cicids2017/*.csv
+  # Caps majority classes for laptop-sized training; recorded in the model card.
+  max_rows_per_class: 50000
+split:
+  test_size: 0.2
+  val_size: 0.2
+  seed: 42
+models: [logistic_regression, random_forest, hist_gradient_boosting]
+class_weights: [none, balanced]
+selection:
+  critical_min_recall: 0.5
+output_dir: ../artifacts

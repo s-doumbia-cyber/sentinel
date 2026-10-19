@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normalizeLabel } from "../src/labels.js";
 import { ATTACK_CLASSES } from "../src/taxonomy.js";
@@ -40,5 +42,13 @@ describe("normalizeLabel", () => {
     expect(normalizeLabel(undefined)).toBeNull();
     expect(normalizeLabel(null)).toBeNull();
     expect(normalizeLabel(42)).toBeNull();
+  });
+});
+
+describe("shared label vectors (also run by services/ml)", () => {
+  const path = fileURLToPath(new URL("../test-vectors/labels.json", import.meta.url));
+  const { cases } = JSON.parse(readFileSync(path, "utf-8")) as { cases: [string, string | null][] };
+  it.each(cases)("normalizeLabel(%j) === %j", (raw, expected) => {
+    expect(normalizeLabel(raw)).toBe(expected);
   });
 });

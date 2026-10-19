@@ -1,0 +1,24 @@
+# Benchmark model trained on the small CICIDS2017 sample shipped in the repo.
+# It contains only BENIGN and DDoS rows from one capture day (Friday afternoon),
+# so it is a pipeline demonstration, NOT a representative detector.
+name: CICIDS2017 sample benchmark (BENIGN vs DDoS)
+version_prefix: cicids-sample
+schema: cicids2017-v1
+kind: benchmark
+description: >-
+  Stratified sample of 500 BENIGN and 500 DDoS flows from the CICIDS2017
+  Friday-WorkingHours-Afternoon-DDos capture (data/samples). Two classes only,
+  one attacker IP: results say nothing about other attack types or networks.
+data:
+  csv:
+    - ../../../data/samples/cicids2017-friday-ddos-sample.csv
+  max_rows_per_class: 50000
+split:
+  test_size: 0.2
+  val_size: 0.2
+  seed: 42
+models: [logistic_regression, random_forest, hist_gradient_boosting]
+class_weights: [none, balanced]
+selection:
+  critical_min_recall: 0.5
+output_dir: ../artifacts
