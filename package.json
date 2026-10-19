@@ -1,0 +1,35 @@
+{
+  "name": "sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sentinel: explainable threat detection and triage for small security teams.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev -w @sentinel/api\" \"npm:dev -w @sentinel/web\"",
+    "dev:api": "npm run dev -w @sentinel/api",
+    "dev:web": "npm run dev -w @sentinel/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.4.2",
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3",
+    "eslint": "^9.18.0",
+    "@eslint/js": "^9.18.0",
+    "typescript-eslint": "^8.21.0",
+    "globals": "^15.14.0"
+  }
+}

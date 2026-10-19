@@ -1,0 +1,141 @@
+import type { AnyBulkWriteOperation, Types } from "mongoose";
+import { DEFAULT_SEVERITY_BY_CLASS, FEATURE_SCHEMA_IDS, type AttackClass, type FeatureSchemaId } from "@sentinel/shared";
+import { AppError } from "../../lib/errors.js";
+import type { Logger } from "../../lib/logger.js";
+import { Org } from "../../models/identity.js";
+import { Flow, type FlowDoc } from "../../models/tenant.js";
+import { MlContractError, isKnownClass, type MlClient } from "../models/ml.client.js";
+
+const BATCH = 500;
+
+export interface SchemaRunResult {
+  schema: FeatureSchemaId;
+  status: "scored" | "no_active_model" | "nothing_pending" | "ml_unavailable" | "contract_error";
+  modelVersion: string | null;
+  scored: number;
+  errored: number;
+  message?: string;
+}
+
+export function activeModelsOf(org: { settings?: { activeModels?: unknown } | null } | null): Record<string, string> {
+  const m = org?.settings?.activeModels;
+  if (!m) return {};
+  return m instanceof Map ? Object.fromEntries(m as Map<string, string>) : (m as Record<string, string>);
+}
+
+/**
+ * Scores pending flows with the org's active model for each feature schema.
+ * A flow is never scored by a model of another schema, and without an active
+ * model it stays `pending` (docs/ML_AND_DETECTION.md §2, §12.5).
+ * Updates only match `scoreStatus: "pending"`, so re-running is idempotent.
+ */
+export class ScoringService {
+  private readonly running = new Set<string>();
+
+  constructor(
+    private readonly ml: MlClient,
+    private readonly logger: Logger,
+  ) {}
+
+  isRunning(orgId: Types.ObjectId): boolean {
+    return this.running.has(String(orgId));
+  }
+
+  async scorePending(orgId: Types.ObjectId): Promise<SchemaRunResult[]> {
+    const key = String(orgId);
+    if (this.running.has(key)) return [];
+    this.running.add(key);
+    try {
+      const org = await Org.findById(orgId).lean();
+      if (!org) throw AppError.notFound("Organisation");
+      const active = activeModelsOf(org);
+      const threshold = org.settings?.needsReviewThreshold ?? 0.6;
+      const results: SchemaRunResult[] = [];
+      for (const schema of FEATURE_SCHEMA_IDS) {
+        const pending = await Flow.countDocuments({ orgId, scoreStatus: "pending", featureSchema: schema });
+        const version = active[schema] ?? null;
+        if (!pending) results.push({ schema, status: "nothing_pending", modelVersion: version, scored: 0, errored: 0 });
+        else if (!version) results.push({ schema, status: "no_active_model", modelVersion: null, scored: 0, errored: 0 });
+        else results.push(await this.scoreSchema(orgId, schema, version, threshold));
+      }
+      return results;
+    } finally {
+      this.running.delete(key);
+    }
+  }
+
+  private async scoreSchema(orgId: Types.ObjectId, schema: FeatureSchemaId, version: string, threshold: number): Promise<SchemaRunResult> {
+    const result: SchemaRunResult = { schema, status: "scored", modelVersion: version, scored: 0, errored: 0 };
+    for (;;) {
+      const flows = await Flow.find({ orgId, scoreStatus: "pending", featureSchema: schema })
+        .sort({ _id: 1 })
+        .limit(BATCH)
+        .select("_id features")
+        .lean<Pick<FlowDoc, "_id" | "features">[]>();
+      if (!flows.length) return result;
+      let response;
+      try {
+        response = await this.ml.predict({
+          schema,
+          modelVersion: version,
+          explain: true,
+          flows: flows.map((f) => ({
+            id: String(f._id),
+            features: (f.features instanceof Map ? Object.fromEntries(f.features) : (f.features ?? {})) as Record<string, number | null>,
+          })),
+        });
+      } catch (err) {
+        if (err instanceof MlContractError) {
+          // A contract error would repeat forever on the same flows: record it on them instead.
+          await Flow.updateMany(
+            { orgId, _id: { $in: flows.map((f) => f._id) }, scoreStatus: "pending" },
+            { $set: { scoreStatus: "error", scoreError: err.message.slice(0, 500) } },
+          );
+          this.logger.warn({ orgId: String(orgId), schema, err: err.message }, "ML contract error while scoring");
+          return { ...result, status: "contract_error", errored: result.errored + flows.length, message: err.message };
+        }
+        this.logger.warn({ orgId: String(orgId), err }, "ML service unavailable; flows stay pending");
+        return { ...result, status: "ml_unavailable", message: err instanceof Error ? err.message : String(err) };
+      }
+
+      const now = new Date();
+      const byId = new Map(response.results.map((r) => [r.id, r]));
+      const ops: AnyBulkWriteOperation[] = flows.map((f) => {
+        const r = byId.get(String(f._id));
+        const filter = { orgId, _id: f._id, scoreStatus: "pending" };
+        if (!r) return { updateOne: { filter, update: { $set: { scoreStatus: "error", scoreError: "No result returned by the ML service" } } } };
+        if (!isKnownClass(r.label)) {
+          // Unknown stays unknown: never mapped to a known class.
+          return { updateOne: { filter, update: { $set: { scoreStatus: "error", scoreError: `Model returned unknown class ${r.label}` } } } };
+        }
+        const label = r.label as AttackClass;
+        return {
+          updateOne: {
+            filter,
+            update: {
+              $set: {
+                scoreStatus: "scored",
+                scoreError: null,
+                scored: {
+                  modelVersion: response.modelVersion,
+                  label,
+                  confidence: r.confidence,
+                  probabilities: r.probabilities,
+                  severity: DEFAULT_SEVERITY_BY_CLASS[label],
+                  needsReview: r.confidence < threshold,
+                  topFeatures: (r.topFeatures ?? []).map((t) => ({ name: t.name, contribution: t.contribution, value: t.value })),
+                  scoredAt: now,
+                },
+              },
+            },
+          },
+        };
+      });
+      const write = await Flow.bulkWrite(ops, { ordered: false });
+      const errored = ops.filter((o) => "updateOne" in o && (o.updateOne.update as { $set: { scoreStatus: string } }).$set.scoreStatus === "error").length;
+      result.errored += errored;
+      result.scored += write.modifiedCount - errored;
+      if (write.modifiedCount === 0) return result; // nothing changed: another run took these flows
+    }
+  }
+}

@@ -1,5 +1,0 @@
-node_modules/
-.env
-npm-debug.log*
-data/*.json
-ml/__pycache__/

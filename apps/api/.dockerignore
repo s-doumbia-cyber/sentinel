@@ -1,4 +1,0 @@
-node_modules
-.env
-data/*.json
-ml/__pycache__
