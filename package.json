@@ -12,7 +12,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev -w @sentinel/api\" \"npm:dev -w @sentinel/web\"",
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "npm run dev -w @sentinel/api",
     "dev:web": "npm run dev -w @sentinel/web",
     "build": "npm run build --workspaces --if-present",
@@ -20,7 +20,14 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "ml:install": "node scripts/ml.mjs install",
+    "ml:train:sample": "node scripts/ml.mjs train-sample",
+    "ml:serve": "node scripts/ml.mjs serve",
+    "ml:test": "node scripts/ml.mjs test",
+    "smoke": "node scripts/smoke.mjs",
+    "import:csv": "npm run import:csv -w @sentinel/api --",
+    "migrate:legacy": "npm run migrate:legacy -w @sentinel/api --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

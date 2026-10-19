@@ -1,27 +1,57 @@
-version: "3.8"
+# Sentinel stack. Copy .env.example to .env (repository root) and set the secrets first.
+#   docker compose up --build              # mongo, ml, api, web  -> http://localhost:8080
+#   docker compose --profile train run --rm ml-train   # train the sample benchmark model inside the ML image
+# MongoDB is not published on the host, so it never collides with a local MongoDB on 27017.
+name: sentinel
 
 services:
   mongo:
     image: mongo:7
-    ports: ["27017:27017"]
-    volumes: ["mongo-data:/data/db"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  backend:
-    build: ./backend
-    ports: ["4000:4000"]
+  ml:
+    build: { context: ., dockerfile: services/ml/Dockerfile }
     environment:
-      - MONGO_URI=mongodb://mongo:27017/cyber_threat_dashboard
-      - JWT_SECRET=demo-secret-change-in-prod
-      - CLIENT_ORIGIN=http://localhost:5173
-      - PORT=4000
-    depends_on: [mongo]
+      SENTINEL_ML_TOKEN: ${ML_SERVICE_TOKEN:?set ML_SERVICE_TOKEN in .env}
+    volumes: [ml-artifacts:/app/artifacts]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  frontend:
-    build: ./frontend
-    ports: ["5173:5173"]
+  ml-train:
+    profiles: [train]
+    build: { context: ., dockerfile: services/ml/Dockerfile }
+    volumes: [ml-artifacts:/app/artifacts]
+    command: ["sentinel-train", "--config", "configs/cicids-sample.yaml", "--csv", "/app/samples/cicids2017-friday-ddos-sample.csv", "--output-dir", "/app/artifacts"]
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
     environment:
-      - VITE_API_PROXY_TARGET=http://backend:4000
-    depends_on: [backend]
+      NODE_ENV: production
+      PORT: "4000"
+      MONGO_URI: mongodb://mongo:27017/sentinel
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      TRUST_PROXY: "1"
+      ML_SERVICE_URL: http://ml:8000
+      ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
+    depends_on:
+      mongo: { condition: service_healthy }
+      ml: { condition: service_healthy }
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports: ["${WEB_PORT:-8080}:8080"]
+    depends_on:
+      api: { condition: service_healthy }
 
 volumes:
   mongo-data:
+  ml-artifacts:

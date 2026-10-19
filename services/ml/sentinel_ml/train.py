@@ -95,10 +95,12 @@ def _group_evaluation(X, y, groups, algorithm, class_weight, classes, seed) -> d
     return {"status": "ok", **note, "macroF1": m["macroF1"], "testRows": m["testRows"], "perClass": m["perClass"]}
 
 
-def train(config_path: Path) -> Path:
+def train(config_path: Path, csv_override: list[str] | None = None, output_override: Path | None = None) -> Path:
     config_path = config_path.resolve()
     base = config_path.parent
     cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if csv_override:
+        cfg["data"]["csv"] = [str(Path(p).resolve()) for p in csv_override]
     schema_id = cfg["schema"]
     seed = int(cfg.get("split", {}).get("seed", 42))
     test_size = float(cfg.get("split", {}).get("test_size", 0.2))
@@ -161,13 +163,13 @@ def train(config_path: Path) -> Path:
 
     now = datetime.now(timezone.utc)
     version = f"{cfg.get('version_prefix', 'model')}-{now.strftime('%Y.%m.%d-%H%M%S')}"
-    out_root = (base / cfg.get("output_dir", "../artifacts")).resolve()
+    out_root = output_override.resolve() if output_override else (base / cfg.get("output_dir", "../artifacts")).resolve()
     out = out_root / version
     out.mkdir(parents=True, exist_ok=False)
 
     joblib.dump({"pipeline": final, "classes": model_classes, "features": list(X.columns), "schema": schema_id}, out / "model.joblib")
     shutil.copyfile(schemas_dir() / f"{schema_id}.json", out / "feature_schema.json")
-    shutil.copyfile(config_path, out / "training_config.yaml")
+    (out / "training_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
     env = lib_versions()
     (out / "env.json").write_text(json.dumps(env, indent=2), encoding="utf-8")
 
@@ -209,9 +211,11 @@ def train(config_path: Path) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sentinel-train", description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
+    parser.add_argument("--csv", action="append", help="CSV path or glob; overrides data.csv in the config (repeatable)")
+    parser.add_argument("--output-dir", type=Path, help="Artefact root; overrides output_dir in the config")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    out = train(args.config)
+    out = train(args.config, args.csv, args.output_dir)
     meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
     print(f"\nModel {meta['version']} ({meta['algorithm']}) written to {out}")
     print(f"Test macro-F1: {meta['metrics']['macroF1']}  (rows: {meta['metrics']['testRows']})")

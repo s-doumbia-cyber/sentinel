@@ -89,6 +89,7 @@ class Registry:
         self.reload()
 
     def reload(self) -> int:
+        """Rescans the artefact directory, keeping already-loaded models in memory."""
         models: dict[str, ModelEntry] = {}
         if self.dir.is_dir():
             for meta_path in sorted(self.dir.glob("*/meta.json")):
@@ -100,7 +101,8 @@ class Registry:
                         g = json.loads(metrics_path.read_text(encoding="utf-8")).get("groupAware", {})
                         meta["groupAware"] = {k: g.get(k) for k in ("status", "reason", "macroF1", "testRows", "groups", "perClass", "classesMissingFromTest", "classesMissingFromTrain") if k in g}
                     warnings, blocking = version_warnings(meta.get("libVersions", {}))
-                    entry = ModelEntry(meta_path.parent, meta, warnings, blocking)
+                    existing = getattr(self, "models", {}).get(meta.get("version"))
+                    entry = existing or ModelEntry(meta_path.parent, meta, warnings, blocking)
                     models[entry.version] = entry
                     if warnings:
                         log.warning("Model %s: %s", entry.version, "; ".join(warnings))
@@ -110,4 +112,9 @@ class Registry:
         return len(models)
 
     def get(self, version: str) -> ModelEntry | None:
-        return self.models.get(version)
+        entry = self.models.get(version)
+        if entry is None:
+            # A model trained after startup appears without a manual /reload.
+            self.reload()
+            entry = self.models.get(version)
+        return entry

@@ -50,6 +50,7 @@ def create_app(artifacts_dir: Path | None = None, token: str | None = None) -> F
 
     @app.get("/models", dependencies=[Depends(check_token)])
     def list_models() -> dict:
+        registry.reload()  # cheap directory scan; picks up newly trained models
         return {"models": [m.summary() for m in registry.models.values()]}
 
     @app.get("/models/{version}", dependencies=[Depends(check_token)])
