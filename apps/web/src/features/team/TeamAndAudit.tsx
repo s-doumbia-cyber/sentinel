@@ -104,6 +104,11 @@ const ACTIONS = [
   "model.activate",
   "model.deactivate",
   "scoring.run",
+  "detections.run",
+  "rule.create",
+  "rule.update",
+  "rule.delete",
+  "alert.update",
 ];
 
 export function AuditPage() {

@@ -1,10 +1,12 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import {
+  Bell,
   Building2,
   ChevronsUpDown,
   Database,
   FlaskConical,
   LayoutDashboard,
+  ListChecks,
   ListTree,
   LogOut,
   ScrollText,
@@ -37,6 +39,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "Monitor",
     items: [
       { to: "/", label: "Command Center", icon: LayoutDashboard },
+      { to: "/alerts", label: "Alerts", icon: Bell },
       { to: "/flows", label: "Flows", icon: ListTree },
     ],
   },
@@ -44,6 +47,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Detect",
     items: [
+      { to: "/rules", label: "Rules", icon: ListChecks },
       { to: "/models", label: "Models", icon: FlaskConical },
       { to: "/datasets", label: "Datasets", icon: Database },
     ],
@@ -58,7 +62,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   },
 ];
 
-const MOBILE = ["/", "/flows", "/incidents", "/models", "/settings"];
+const MOBILE = ["/", "/alerts", "/incidents", "/flows", "/settings"];
 
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(

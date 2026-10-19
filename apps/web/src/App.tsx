@@ -7,6 +7,8 @@ import { LoginPage, RegisterPage } from "@/features/auth/AuthPages";
 
 // Route-level code splitting (§11): charts and heavy pages load on demand.
 const CommandCenter = lazy(() => import("@/features/overview/CommandCenter").then((m) => ({ default: m.CommandCenter })));
+const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage").then((m) => ({ default: m.AlertsPage })));
+const RulesPage = lazy(() => import("@/features/rules/RulesPage").then((m) => ({ default: m.RulesPage })));
 const FlowsPage = lazy(() => import("@/features/flows/FlowsPage").then((m) => ({ default: m.FlowsPage })));
 const DatasetsPage = lazy(() => import("@/features/datasets/DatasetsPage").then((m) => ({ default: m.DatasetsPage })));
 const ModelsPage = lazy(() => import("@/features/models/ModelsPage").then((m) => ({ default: m.ModelsPage })));
@@ -59,7 +61,9 @@ export default function App() {
       >
         {[
           { path: "/", el: <CommandCenter /> },
+          { path: "/alerts", el: <AlertsPage /> },
           { path: "/flows", el: <FlowsPage /> },
+          { path: "/rules", el: <RulesPage /> },
           { path: "/datasets", el: <DatasetsPage /> },
           { path: "/models", el: <ModelsPage /> },
           { path: "/incidents", el: <IncidentsPage /> },

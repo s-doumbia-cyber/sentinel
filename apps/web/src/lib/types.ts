@@ -1,4 +1,4 @@
-import type { AttackClass, Role, Severity, SourceKind } from "@sentinel/shared";
+import type { AlertStatus, AlertVerdict, AttackClass, MitreMapping, Role, RuleDefinition, RuleField, Severity, SourceKind } from "@sentinel/shared";
 
 export interface UserPreferences {
   emailAlerts: boolean;
@@ -238,4 +238,52 @@ export interface SessionInfo {
   lastSeenAt: string;
   createdAt: string;
   current: boolean;
+}
+
+export interface Alert {
+  id: string;
+  type: AttackClass;
+  severity: Severity;
+  status: AlertStatus;
+  verdict: AlertVerdict | null;
+  srcIp: string | null;
+  dstIp: string | null;
+  dstPort: number | null;
+  count: number;
+  firstSeen: string;
+  lastSeen: string;
+  /** Highest model confidence; null when only rules fired. */
+  maxConfidence: number | null;
+  sources: string[];
+  ruleIds: string[];
+  modelVersions: string[];
+  mitre: MitreMapping | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlertDetail extends Alert {
+  verdictBy: { id: string; name: string } | null;
+  verdictAt: string | null;
+  ruleHits: { ruleKey: string; value: number; flowCount: number; windowStart: string; windowEnd: string }[];
+  rules: (Pick<RuleDefinition, "key" | "name" | "description" | "window" | "groupBy" | "condition" | "filter" | "severity"> & { version: number })[];
+  explanationFlow: Flow | null;
+  evidence: Flow[];
+  evidenceTruncated: boolean;
+}
+
+export interface AlertSummary {
+  byStatus: Partial<Record<AlertStatus, number>>;
+  activeBySeverity: Partial<Record<Severity, number>>;
+  total: number;
+}
+
+export type Rule = RuleDefinition & { id: string; starter: boolean; version: number; updatedAt: string | null };
+
+export interface RuleTestResult {
+  rule: string;
+  flowsScanned: number;
+  truncated: boolean;
+  hitCount: number;
+  hits: { group: Partial<Record<RuleField, string | number>>; value: number; flowCount: number; windowStart: string; windowEnd: string; sampleFlowIds: string[] }[];
 }

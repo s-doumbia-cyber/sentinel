@@ -3,6 +3,9 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { useAuth } from "@/features/auth/AuthContext";
 import { api } from "./api";
 import type {
+  Alert,
+  AlertDetail,
+  AlertSummary,
   AuditEntry,
   Dataset,
   Evaluation,
@@ -13,6 +16,7 @@ import type {
   ModelSummary,
   Overview,
   Page,
+  Rule,
   ScoringStatus,
   SessionInfo,
   Timeseries,
@@ -153,4 +157,32 @@ export function useOrgMutation<TVars, TResult>(fn: (vars: TVars) => Promise<TRes
     mutationFn: fn,
     onSuccess: () => Promise.all(invalidate.map((k) => qc.invalidateQueries({ queryKey: [org, k] }))),
   });
+}
+
+export type AlertFilters = { status?: string; severity?: string; type?: string; source?: string; sourceIp?: string };
+
+export function useAlerts(filters: AlertFilters) {
+  const org = useOrgKey();
+  return useInfiniteQuery({
+    queryKey: [org, "alerts", filters],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => api<Page<Alert>>("/alerts", { query: { ...filters, limit: 50, cursor: pageParam } }),
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAlert(id: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "alert", id], queryFn: () => api<AlertDetail>(`/alerts/${id}`), enabled: Boolean(id) });
+}
+
+export function useAlertSummary() {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "alertSummary"], queryFn: () => api<AlertSummary>("/alerts/summary") });
+}
+
+export function useRules() {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "rules"], queryFn: () => api<{ items: Rule[] }>("/rules") });
 }

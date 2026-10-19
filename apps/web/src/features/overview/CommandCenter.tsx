@@ -6,7 +6,7 @@ import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/Card";
 import { EntityChip, KpiCard } from "@/components/ui/Data";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { formatDateTime, formatScore } from "@/lib/format";
-import { useBreakdown, useDatasets, useModels, useOverview, useScoringStatus, useTimeseries, useTop } from "@/lib/queries";
+import { useAlertSummary, useBreakdown, useDatasets, useModels, useOverview, useScoringStatus, useTimeseries, useTop } from "@/lib/queries";
 import type { SourceKind } from "@sentinel/shared";
 
 function Onboarding({ hasDataset, hasActiveModel }: { hasDataset: boolean; hasActiveModel: boolean }) {
@@ -84,6 +84,8 @@ export function CommandCenter() {
   const verdicts = useBreakdown("verdict");
   const attackers = useTop("attackers");
   const ports = useTop("ports");
+  const alertSummary = useAlertSummary();
+  const activeAlerts = alertSummary.data ? Object.values(alertSummary.data.activeBySeverity).reduce((a, b) => a + (b ?? 0), 0) : undefined;
 
   if (overview.isError) return <ErrorState error={overview.error} onRetry={() => void overview.refetch()} />;
   const o = overview.data;
@@ -115,11 +117,11 @@ export function CommandCenter() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
             <KpiCard label="Flows" value={o?.totalFlows} loading={!o} to="/flows" />
-            <KpiCard label="Malicious verdicts" value={o?.maliciousFlows} loading={!o} to="/flows?verdict=malicious" tone="alert" />
+            <KpiCard label="Active alerts" value={activeAlerts} loading={alertSummary.isLoading} hint={alertSummary.data?.activeBySeverity.critical ? `${alertSummary.data.activeBySeverity.critical} critical` : undefined} to="/alerts" tone="alert" />
+            <KpiCard label="Malicious verdicts" value={o?.maliciousFlows} loading={!o} to="/flows?verdict=malicious" />
             <KpiCard label="Malicious sources" value={o?.maliciousSourceIps} loading={!o} to="/flows?verdict=malicious" />
             <KpiCard label="Needs review" value={o?.needsReviewFlows} loading={!o} hint="Below confidence threshold" to="/flows?needsReview=true" />
             <KpiCard label="Not scored" value={o?.pendingFlows} loading={!o} to="/flows?verdict=unscored" />
-            <KpiCard label="Scoring errors" value={o?.errorFlows} loading={!o} to="/flows?verdict=error" />
           </div>
           <div className="grid gap-6 lg:grid-cols-12">
             <Card className="lg:col-span-8">
