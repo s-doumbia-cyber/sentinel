@@ -8,9 +8,9 @@ every verdict comes from a model you can inspect (never from a dataset label), e
 where it came from, and every model ships with per-class results and its known limits.
 
 > **Status (October 2026): early, working foundation.** CSV import, real ML scoring with SHAP
-> explanations, model cards, multi-tenant orgs, secure auth, RBAC, audit log and a rebuilt UI work
-> end to end and are tested. Live capture, rules, alerts, correlation, integrations and reports
-> are **not built yet**; see [ROADMAP.md](ROADMAP.md).
+> explanations, detection rules, alerts with triage, model cards, multi-tenant orgs, secure auth,
+> RBAC, audit log and a rebuilt UI work end to end and are tested. Live capture, correlation into
+> incidents, integrations and reports are **not built yet**; see [ROADMAP.md](ROADMAP.md).
 
 ## What works today
 
@@ -18,6 +18,8 @@ where it came from, and every model ships with per-class results and its known l
 |---|---|
 | Import | Upload a CICIDS2017 / CICFlowMeter CSV (or use the CLI for large files). Header checked first; every rejected row counted and sampled; labels kept as ground truth only; flows tagged `IMPORTED`. |
 | Detection | The org's active model (per feature schema) scores pending flows through the ML service. No active model → flows stay "not scored". Unknown classes are errors, never mapped. |
+| Rules | Five starter threshold rules (port scan, SSH/FTP brute force, SYN flood, slow HTTP) plus your own, as JSON with a plain-language description; enable, edit (versioned, audited) and test them over stored flows without creating alerts. |
+| Alerts | Raised by model verdicts and rule hits, deduplicated (same source, target, type within 10 minutes → one alert with a count), hybrid severity, `needs review` for low confidence; triage with status and analyst verdict. |
 | Explanations | Top-5 SHAP contributions per malicious or low-confidence verdict, class probabilities, confidence with a needs-review threshold, MITRE ATT&CK technique marked "suggested". |
 | Models | Registry of trained versions with model card, macro-F1, per-class precision/recall/F1/support, holdout on unseen source IPs, library-version checks, per-org activation (Owner/Admin). |
 | Evaluation | Live comparison of verdicts with dataset labels in your org (confusion matrix, macro-F1), with a warning when the data was also used for training. |
@@ -108,11 +110,11 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 ## Testing
 
 - `packages/shared`: 65 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature schema drift).
-- `apps/api`: 49 integration tests on a real in-memory MongoDB: auth (rotation, reuse detection,
+- `apps/api`: 80 tests (18 rule-evaluator unit tests; the rest are integration tests on a real in-memory MongoDB, including 13 for alerts and rules): auth (rotation, reuse detection,
   logout-all, CSRF, rate limit, legacy hash upgrade), tenant isolation (cross-org → 404, unscoped
   queries rejected), RBAC role × route matrix, audit per mutation, import, scoring, stats, evaluation,
   migration.
-- `apps/web`: API client (in-memory token, single-flight refresh, error envelope).
+- `apps/web`: API client (in-memory token, single-flight refresh, error envelope) and rule descriptions.
 - `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version
   mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
 
@@ -124,8 +126,9 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
   DDoS, one attacker IP): macro-F1 1.00 on a random split but 0.52 on unseen source IPs. It says
   nothing about other attacks or your network. Train on the full dataset for a broader benchmark,
   and remember CICIDS2017 has known label errors and does not transfer to other networks.
-- No rules engine, alerts, correlation, SSE stream, integrations, reports, invitations, MFA, i18n,
+- No alert-to-incident correlation, SSE stream, integrations, reports, invitations, MFA, i18n,
   command palette or drift monitoring yet.
+- Rule windows are evaluated per import (or on "Run detections") over stored flows, not in real time.
 - Background jobs (import, scoring) run in-process: an API restart interrupts them (interrupted
   imports are marked failed at startup; pending flows can be re-scored with "Score pending flows").
 - Dashboards aggregate raw flows; rollups for millions of rows are Phase 5.

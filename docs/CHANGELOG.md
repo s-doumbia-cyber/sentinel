@@ -40,5 +40,15 @@ All notable changes. Dates are UTC.
   Command Center, Flows (with "why" drawer), Datasets, Models, Incidents, Team, Audit log, Settings.
 - Removed mock data, decorative effects, client-side "monitor", `axios`, `framer-motion`, `jspdf`, `xlsx`.
 
+### Detection rules and alerts (roadmap 1.7, 1.8)
+- JSON threshold-rule DSL in `packages/shared` with five starter rules (port scan, SSH/FTP brute force,
+  SYN flood, slow HTTP); streaming sliding-window evaluator; rule CRUD, versioning, audit and a test
+  endpoint that never creates alerts.
+- Alerts from model verdicts and rule hits: dedupe with `count`, hybrid severity, `needs_review` below
+  the confidence threshold, evidence flows, best SHAP explanation, triage status and analyst verdicts.
+- Fixed a double count when the scoring job and the detection backfill ran concurrently.
+- UI: Alerts page (filters in the URL, drawer with why-it-fired and triage) and Rules page (describe,
+  enable, edit JSON, test); Active alerts KPI on the Command Center.
+
 ### Security
 - `csv-parse` 7 and `react-router` 7: `npm audit --omit=dev` reports no vulnerabilities.

@@ -103,6 +103,12 @@ if (flagged) {
   for (const f of flagged.scored.topFeatures) console.log(`  ${f.contribution >= 0 ? "+" : ""}${f.contribution.toFixed(4)}  ${f.name} = ${f.value}`);
 }
 
+step("Alerts raised by the model and the rules");
+await waitFor(async () => (await call("GET", "/alerts")).items.length > 0, "alerts", 30_000).catch(() => null);
+const raised = (await call("GET", "/alerts")).items;
+if (!raised.length) console.log("no active alerts (expected only when nothing malicious was detected)");
+for (const a of raised) console.log(`  ${a.severity.toUpperCase()} ${a.type} ${a.srcIp ?? "*"} -> ${a.dstIp ?? "*"} evidence=${a.count} status=${a.status} by ${a.sources.join(", ")}`);
+
 step("Audit trail");
 for (const e of (await call("GET", "/audit?limit=10")).items) console.log(`  ${e.ts} ${e.action} ${e.target.type}:${e.target.id ?? ""}`);
 

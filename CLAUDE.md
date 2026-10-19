@@ -160,6 +160,8 @@ SHAP). Labels are ground truth only; verdicts come from the ML service. Ticked r
 a ✅ note, partial ones a ⏳ note; read the Decisions log in `ROADMAP.md` before changing the data
 model or the model registry. Existing user data needs `npm run migrate:legacy` (dry run first; never
 run it without the owner's go-ahead). Commands in §6 work except `seed:demo` and `test:e2e` (not built).
+Rules and alerts (1.7, 1.8) exist: rules run per import and on `POST /detections/run`; alerting is
+idempotent via `alertedAt`/`alertClaim` on flows and `hitKeys` on alerts — keep it that way.
 
 ## 14. Lessons learned (do not repeat these bugs)
 
