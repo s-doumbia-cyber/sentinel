@@ -4,6 +4,7 @@ import { AppError } from "../../lib/errors.js";
 import type { Logger } from "../../lib/logger.js";
 import { Org } from "../../models/identity.js";
 import { Flow, type FlowDoc } from "../../models/tenant.js";
+import type { AlertService, ModelVerdictEvidence } from "../alerts/alert.service.js";
 import { MlContractError, isKnownClass, type MlClient } from "../models/ml.client.js";
 
 const BATCH = 500;
@@ -35,6 +36,7 @@ export class ScoringService {
   constructor(
     private readonly ml: MlClient,
     private readonly logger: Logger,
+    private readonly alerts: AlertService,
   ) {}
 
   isRunning(orgId: Types.ObjectId): boolean {
@@ -70,8 +72,8 @@ export class ScoringService {
       const flows = await Flow.find({ orgId, scoreStatus: "pending", featureSchema: schema })
         .sort({ _id: 1 })
         .limit(BATCH)
-        .select("_id features")
-        .lean<Pick<FlowDoc, "_id" | "features">[]>();
+        .select("_id features timestamp sourceIp destinationIp destinationPort")
+        .lean<Pick<FlowDoc, "_id" | "features" | "timestamp" | "sourceIp" | "destinationIp" | "destinationPort">[]>();
       if (!flows.length) return result;
       let response;
       try {
@@ -132,10 +134,72 @@ export class ScoringService {
         };
       });
       const write = await Flow.bulkWrite(ops, { ordered: false });
+      // Malicious verdicts become (or join) alerts right away.
+      const evidence: ModelVerdictEvidence[] = flows.flatMap((f) => {
+        const r = byId.get(String(f._id));
+        if (!r || !isKnownClass(r.label) || r.label === "Normal") return [];
+        return [
+          {
+            flowId: f._id,
+            timestamp: f.timestamp,
+            sourceIp: f.sourceIp,
+            destinationIp: f.destinationIp,
+            destinationPort: f.destinationPort,
+            label: r.label as AttackClass,
+            confidence: r.confidence,
+            modelVersion: response.modelVersion,
+          },
+        ];
+      });
+      await this.alerts.recordModelVerdicts(orgId, threshold, evidence);
       const errored = ops.filter((o) => "updateOne" in o && (o.updateOne.update as { $set: { scoreStatus: string } }).$set.scoreStatus === "error").length;
       result.errored += errored;
       result.scored += write.modifiedCount - errored;
       if (write.modifiedCount === 0) return result; // nothing changed: another run took these flows
+    }
+  }
+
+  /**
+   * Folds already-scored malicious flows that never produced an alert (scored
+   * before alerting existed, or migrated) into alerts. Idempotent via `alertedAt`.
+   */
+  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<number> {
+    const org = await Org.findById(orgId).lean();
+    const threshold = org?.settings?.needsReviewThreshold ?? 0.6;
+    let created = 0;
+    for (;;) {
+      const flows = await Flow.find({
+        orgId,
+        ...(datasetId ? { datasetId } : {}),
+        scoreStatus: "scored",
+        "scored.label": { $ne: "Normal" },
+        alertedAt: null,
+      })
+        .sort({ _id: 1 })
+        .limit(BATCH)
+        .select("_id timestamp sourceIp destinationIp destinationPort scored")
+        .lean();
+      if (!flows.length) return created;
+      created += await this.alerts.recordModelVerdicts(
+        orgId,
+        threshold,
+        flows.flatMap((f) =>
+          f.scored
+            ? [
+                {
+                  flowId: f._id,
+                  timestamp: f.timestamp,
+                  sourceIp: f.sourceIp,
+                  destinationIp: f.destinationIp,
+                  destinationPort: f.destinationPort,
+                  label: f.scored.label as AttackClass,
+                  confidence: f.scored.confidence,
+                  modelVersion: f.scored.modelVersion,
+                },
+              ]
+            : [],
+        ),
+      );
     }
   }
 }

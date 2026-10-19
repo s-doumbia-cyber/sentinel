@@ -11,6 +11,8 @@ import { BackgroundJobs } from "./lib/jobs.js";
 import type { Logger } from "./lib/logger.js";
 import { PolicyRouter, type RouteInfo } from "./lib/routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import { alertRoutes } from "./modules/alerts/alert.routes.js";
+import { AlertService } from "./modules/alerts/alert.service.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { datasetRoutes } from "./modules/datasets/dataset.routes.js";
@@ -19,6 +21,8 @@ import { incidentRoutes } from "./modules/incidents/incident.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
+import { ruleRoutes } from "./modules/rules/rule.routes.js";
+import { RuleService } from "./modules/rules/rule.service.js";
 import { ScoringService } from "./modules/scoring/scoring.service.js";
 import { statsRoutes } from "./modules/stats/stats.routes.js";
 
@@ -44,10 +48,19 @@ export function createApp(options: AppOptions): SentinelApp {
   const app = express();
   const jobs = new BackgroundJobs(logger);
   const ml = options.ml ?? createMlClient(config);
-  const scoring = new ScoringService(ml, logger);
+  const alerts = new AlertService();
+  const scoring = new ScoringService(ml, logger, alerts);
+  const rules = new RuleService(alerts, logger);
   const scheduleScoring = (orgId: Types.ObjectId) => {
     if (!config.ml.url && !options.ml) return;
     jobs.run(`score:${String(orgId)}`, () => scoring.scorePending(orgId));
+  };
+  // Rules do not need the ML service; the backfill folds earlier malicious verdicts into alerts.
+  const scheduleDetections = (orgId: Types.ObjectId, datasetId?: Types.ObjectId) => {
+    jobs.run(`detect:${String(orgId)}`, async () => {
+      await rules.run(orgId, { datasetId });
+      await scoring.alertUnalerted(orgId, datasetId);
+    });
   };
 
   app.disable("x-powered-by");
@@ -114,11 +127,20 @@ export function createApp(options: AppOptions): SentinelApp {
     authRoutes(config, { authRateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 } }),
     flowRoutes(config),
     statsRoutes(config),
-    datasetRoutes(config, { jobs, logger, onImported: scheduleScoring }),
+    datasetRoutes(config, {
+      jobs,
+      logger,
+      onImported: (orgId, datasetId) => {
+        scheduleScoring(orgId);
+        scheduleDetections(orgId, datasetId);
+      },
+    }),
     incidentRoutes(config),
     memberRoutes(config),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),
+    alertRoutes(config),
+    ruleRoutes(config, { rules, scheduleDetections }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
 

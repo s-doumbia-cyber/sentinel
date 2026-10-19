@@ -20,6 +20,12 @@ export const ACTIONS = [
   "members:read",
   "members:manage",
   "audit:read",
+  "rules:read",
+  "rules:test",
+  "rules:manage",
+  "alerts:read",
+  "alerts:write",
+  "detections:run",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -42,6 +48,13 @@ export const PERMISSIONS: Record<Action, readonly Role[]> = {
   "members:read": ALL,
   "members:manage": ADMINS,
   "audit:read": ADMINS,
+  "rules:read": ALL,
+  // Replays a rule over stored flows: read-only but costly, so not for Viewers.
+  "rules:test": WRITERS,
+  "rules:manage": ADMINS,
+  "alerts:read": ALL,
+  "alerts:write": WRITERS,
+  "detections:run": WRITERS,
 };
 
 export function can(role: Role, action: Action): boolean {

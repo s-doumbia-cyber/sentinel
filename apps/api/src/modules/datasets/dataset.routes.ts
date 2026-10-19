@@ -50,8 +50,8 @@ const idParams = z.object({ id: objectIdSchema });
 export interface DatasetRouteDeps {
   jobs: BackgroundJobs;
   logger: Logger;
-  /** Called after a successful import so new flows get scored. */
-  onImported: (orgId: Types.ObjectId) => void;
+  /** Called after a successful import so new flows get scored and checked by the rules. */
+  onImported: (orgId: Types.ObjectId, datasetId: Types.ObjectId) => void;
 }
 
 export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): PolicyRouter {
@@ -126,7 +126,7 @@ export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): Policy
         deps.jobs.run(`import:${String(dataset._id)}`, async () => {
           try {
             await runCsvImport(dataset._id, input, header, deps.logger);
-            deps.onImported(ctx.orgId);
+            deps.onImported(ctx.orgId, dataset._id);
           } finally {
             await unlink(file.path).catch(() => undefined);
           }

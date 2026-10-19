@@ -5,3 +5,4 @@ export * from "./mitre.js";
 export * from "./features.js";
 export * from "./rbac.js";
 export * from "./schemas.js";
+export * from "./rules.js";

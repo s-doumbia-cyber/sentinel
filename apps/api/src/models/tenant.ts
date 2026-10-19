@@ -1,5 +1,7 @@
 import mongoose, { Schema, type InferSchemaType, type Types } from "mongoose";
 import {
+  ALERT_STATUSES,
+  ALERT_VERDICTS,
   ATTACK_CLASSES,
   FEATURE_SCHEMA_IDS,
   INCIDENT_STATUSES,
@@ -58,6 +60,9 @@ const flowSchema = new Schema(
     scoreStatus: { type: String, enum: SCORE_STATUSES, required: true, default: "pending" },
     scoreError: { type: String, default: null },
     scored: { type: scoredSchema, default: null },
+    /** Set once a malicious verdict has been folded into an alert (keeps alerting idempotent). */
+    alertedAt: { type: Date, default: null },
+    alertClaim: { type: String, default: null },
   },
   { timestamps: true },
 );
@@ -168,5 +173,76 @@ for (const op of ["updateOne", "updateMany", "findOneAndUpdate", "deleteOne", "d
 export type AuditDoc = InferSchemaType<typeof auditSchema> & { _id: Types.ObjectId };
 export const AuditLog = mongoose.model("AuditLog", auditSchema, "audit_log");
 
+// ---- Detection rules ---------------------------------------------------------------
+
+const ruleSchema = new Schema(
+  {
+    orgId: orgRef,
+    key: { type: String, required: true },
+    /** The full validated definition (packages/shared ruleDefinitionSchema). */
+    definition: { type: Schema.Types.Mixed, required: true },
+    enabled: { type: Boolean, default: true },
+    starter: { type: Boolean, default: false },
+    version: { type: Number, default: 1 },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  },
+  { timestamps: true },
+);
+ruleSchema.index({ orgId: 1, key: 1 }, { unique: true });
+tenantGuard(ruleSchema, "Rule");
+
+export type RuleDoc = InferSchemaType<typeof ruleSchema> & { _id: Types.ObjectId };
+export const Rule = mongoose.model("Rule", ruleSchema);
+
+// ---- Alerts -------------------------------------------------------------------------
+
+const alertSchema = new Schema(
+  {
+    orgId: orgRef,
+    /** sha256(orgId, src, dst, type, 10-minute bucket): repeated evidence increments `count`. */
+    dedupeKey: { type: String, required: true },
+    type: { type: String, enum: ATTACK_CLASSES, required: true },
+    srcIp: { type: String, default: null },
+    dstIp: { type: String, default: null },
+    dstPort: { type: Number, default: null },
+    /** Hybrid severity = max(model, rules), stored as a rank (see severityRank in packages/shared). */
+    severityRank: { type: Number, required: true },
+    status: { type: String, enum: ALERT_STATUSES, default: "needs_review" },
+    verdict: { type: String, enum: ALERT_VERDICTS, default: null },
+    verdictBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    verdictAt: { type: Date, default: null },
+    count: { type: Number, default: 0 },
+    firstSeen: { type: Date, required: true },
+    lastSeen: { type: Date, required: true },
+    maxConfidence: { type: Number, default: 0 },
+    sources: { type: [String], default: [] },
+    ruleIds: { type: [String], default: [] },
+    modelVersions: { type: [String], default: [] },
+    hitKeys: { type: [String], default: [] },
+    ruleHits: [
+      {
+        _id: false,
+        ruleKey: String,
+        value: Number,
+        flowCount: Number,
+        windowStart: Date,
+        windowEnd: Date,
+      },
+    ],
+    flowIds: [{ type: Schema.Types.ObjectId, ref: "Flow" }],
+    topFlowId: { type: Schema.Types.ObjectId, ref: "Flow", default: null },
+    topConfidence: { type: Number, default: null },
+  },
+  { timestamps: true },
+);
+alertSchema.index({ orgId: 1, dedupeKey: 1 }, { unique: true });
+alertSchema.index({ orgId: 1, status: 1, lastSeen: -1 });
+alertSchema.index({ orgId: 1, lastSeen: -1, _id: -1 });
+alertSchema.index({ orgId: 1, srcIp: 1 });
+tenantGuard(alertSchema, "Alert");
+
+export type AlertDoc = InferSchemaType<typeof alertSchema> & { _id: Types.ObjectId };
+export const Alert = mongoose.model("Alert", alertSchema);
+
 /** Collections holding tenant data, used when an org is deleted. */
-export const TENANT_MODELS = [Flow, Dataset, Incident, AuditLog] as const;
+export const TENANT_MODELS = [Flow, Dataset, Incident, AuditLog, Rule, Alert] as const;
