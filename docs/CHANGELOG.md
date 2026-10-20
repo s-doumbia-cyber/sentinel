@@ -70,6 +70,12 @@ All notable changes. Dates are UTC.
 - Fixed in browser review: evidence plural, local-vs-UTC wording, a stray tab scrollbar and grid
   overflow at phone width.
 
+### Continuous integration
+- CI workflow: Node 22 and 24 matrix (typecheck, lint, tests, build, blocking production audit),
+  ML pytest with a report-only pip-audit, Playwright + axe e2e with cached browsers and MongoDB
+  binaries and a failure report artefact, Docker build; concurrency cancels superseded runs.
+- Minimum Node raised to 22 (Node 20 is end-of-life): `engines`, Docker base images, docs.
+
 ### Context over time, traceability and a real demo workspace
 - Asset history (`asset_events`, append-only): first observed, new or vanished services (ignoring
   ports with fewer than 3 flows), estimate changes, inactive / seen again, analyst note edits.

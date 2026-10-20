@@ -7,7 +7,7 @@ MongoDB database. Where a step could not be re-run that day, the guide says so.
 
 | Tool | Version checked | Notes |
 |---|---|---|
-| Node.js | 24.18.0 (20 or later required) | includes npm 11.16.0 |
+| Node.js | 24.18.0 (22 or later required; 20 is end-of-life) | includes npm 11.16.0 |
 | Python | 3.14.6 (3.11 or later required) | for the ML service |
 | MongoDB | 7.0 Community | local service on `127.0.0.1:27017`, or Docker |
 | Git | any recent | |

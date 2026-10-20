@@ -44,7 +44,7 @@ If documents conflict, precedence is: `ROADMAP.md` > `ARCHITECTURE.md` > `PRODUC
 | Layer | Choice |
 |---|---|
 | Web | React 18, TypeScript (strict), Vite, Tailwind, Radix UI primitives (shadcn/ui pattern), TanStack Query + TanStack Table (+ virtualization), React Router, react-hook-form + zod, cmdk (command palette), ECharts or Recharts for charts, Cytoscape.js or react-force-graph for entity graphs, Framer Motion (subtle), i18next |
-| API | Node 20, TypeScript (strict), Express, zod, pino, BullMQ + Redis (queues), SSE for realtime, OpenAPI generated from zod |
+| API | Node 22 LTS or later (20 is end-of-life), TypeScript (strict), Express, zod, pino, BullMQ + Redis (queues), SSE for realtime, OpenAPI generated from zod |
 | ML service | Python 3.11+, FastAPI, scikit-learn, pandas, shap, joblib, pytest |
 | Collector | Python, nfstream (live and pcap) or equivalent, requests/httpx |
 | Data | MongoDB (keep), Redis (queues, pub/sub, cache) |

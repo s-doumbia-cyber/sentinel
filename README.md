@@ -37,7 +37,7 @@ where it came from, and every model ships with per-class results and its known l
 ## Architecture
 
 ```
- Browser (React SPA) ──/api/v1──▶ API (Node 20, Express, TypeScript) ──▶ MongoDB
+ Browser (React SPA) ──/api/v1──▶ API (Node 22+, Express, TypeScript) ──▶ MongoDB
                                      │  auth, RBAC, tenancy, import, stats, audit
                                      └──/predict──▶ ML service (FastAPI, scikit-learn, SHAP)
                                                      model registry = services/ml/artifacts/
@@ -52,7 +52,7 @@ severity and MITRE maps, feature schemas, RBAC matrix, zod contracts), `services
 The step-by-step, verified version (configuration table, accounts, tour, tests, troubleshooting) is
 [docs/WINDOWS_GUIDE.md](docs/WINDOWS_GUIDE.md).
 
-Prerequisites: Node.js 20+, Python 3.11+, MongoDB (local install or Docker). If PowerShell blocks
+Prerequisites: Node.js 22+, Python 3.11+, MongoDB (local install or Docker). If PowerShell blocks
 `npm.ps1`, use `npm.cmd` as below.
 
 ```powershell
@@ -157,6 +157,9 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
   (about 720 MB on disk under `%LOCALAPPDATA%\ms-playwright`).
 - `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version
   mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
+
+Continuous integration (`.github/workflows/ci.yml`) runs all of the above plus the Docker build on
+every push and pull request once the repository is on GitHub; it has not run there yet.
 
 ## Honest limitations
 
