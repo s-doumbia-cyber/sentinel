@@ -180,6 +180,26 @@ dozens of correlated incidents involving CDN and Google addresses. The starter r
 `R-SLOWHTTP-01` also fired on long benign HTTPS sessions. Use **Validation** to measure each rule
 and model, and treat CICIDS2017 as a benchmark, not as your network.
 
+**Reducing the noise** (Settings → Detection, Owner / Admin). Measured on the same 456,833 scored
+flows (Thursday web attacks and Friday port scan), re-alerted from scratch on an isolated database:
+
+| Settings | Model alerts | Rule alerts | Incidents | Alerts from the known attacker addresses |
+|---|---|---|---|---|
+| Defaults (minimum confidence 0, empty allowlist) | 1,615 | 8 | 73 | 43 |
+| Minimum confidence 90 % + `172.217.0.0/16` allowlisted | 564 | 8 | 27 | 33 |
+
+The minimum confidence removed about two thirds of the alerts but also 10 of the 43 alerts on real
+attacker traffic, which the model had scored with low confidence: a threshold trades misses for
+quiet, so check **Validation** before raising it. Kept-out verdicts stay on their flows and are
+counted on the Detection tab. Do not allowlist what you have not checked: in this dataset the
+largest source of false positives, `205.174.x.x`, is also the attackers' public address, so trusting
+it would hide the attacks. Changes apply to evidence processed after saving; existing alerts stay.
+
+The starter rule `R-SLOWHTTP-01` was also tightened after replaying all eight days through the rule
+engine: 161 hits before, 15 after, with the 8 hits on real slow-HTTP attack flows kept. Workspaces
+created earlier get the new version automatically unless someone edited the rule (see the audit log,
+action `rule.upgrade`).
+
 ## 9. Docker (optional)
 
 ```powershell

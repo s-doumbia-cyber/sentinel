@@ -70,6 +70,17 @@ All notable changes. Dates are UTC.
 - Fixed in browser review: evidence plural, local-vs-UTC wording, a stray tab scrollbar and grid
   overflow at phone width.
 
+### Alert noise controls
+- Settings → Detection: minimum model confidence for alerts (verdicts below it stay on their flows,
+  marked `below_min_confidence`) and an allowlist of trusted addresses / networks with a reason
+  (no model or rule alert when either endpoint matches; flows marked `allowlisted`). Counts of
+  kept-out verdicts are shown; changes are audited (`detection.settings_update`). IPv4 / IPv6 CIDR
+  matching in `packages/shared` rejects ambiguous entries such as `10.0.0.5/24`.
+- Starter rule `R-SLOWHTTP-01` now requires ports 80 / 8080 and at most 10 bytes from the server.
+  Replayed over the eight CICIDS2017 days with the real evaluator: 161 hits → 15, the 8 hits on
+  slow-HTTP attack flows kept. Orgs whose copy still equals the old default are upgraded (version
+  +1, audited as `rule.upgrade` with the reason); customised copies are never touched.
+
 ### Continuous integration
 - CI workflow: Node 22 and 24 matrix (typecheck, lint, tests, build, blocking production audit),
   ML pytest with a report-only pip-audit, Playwright + axe e2e with cached browsers and MongoDB
