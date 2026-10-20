@@ -24,6 +24,8 @@ const pages: { path: (id: string) => string; ready: string | RegExp }[] = [
   { path: (id) => `/incidents/${id}?tab=timeline`, ready: "Discovery → Credential access from 10.0.0.66" },
   { path: (id) => `/incidents/${id}?tab=response`, ready: "Discovery → Credential access from 10.0.0.66" },
   { path: (id) => `/incidents/${id}?tab=log`, ready: "Discovery → Credential access from 10.0.0.66" },
+  { path: (id) => `/incidents/${id}?tab=trace`, ready: "Discovery → Credential access from 10.0.0.66" },
+  { path: () => "/identity?lookup=UNMANAGED-66", ready: "Identity sources" },
   { path: () => "/assets", ready: "Assets" },
   { path: () => "/assets/10.0.0.20", ready: "10.0.0.20" },
   { path: () => "/identity", ready: "Identity sources" },

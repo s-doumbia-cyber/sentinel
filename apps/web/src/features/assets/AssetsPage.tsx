@@ -34,7 +34,21 @@ function ServiceList({ services }: { services: Asset["services"] }) {
 /** The device type is always shown as an estimate with its basis (axis 3). */
 function Estimate({ asset, compact = false }: { asset: Pick<Asset, "deviceEstimate">; compact?: boolean }) {
   const e = asset.deviceEstimate;
-  if (!e) return <span className="text-fg-3">{compact ? "unknown" : "Unknown: not enough observed services to estimate."}</span>;
+  if (!e) {
+    if (compact) return <span className="text-fg-3">unknown</span>;
+    return (
+      <span className="text-fg-3">
+        Unknown: not enough observed services to estimate.
+        <span className="block text-caption">
+          What would help: an asset inventory or EDR export, DHCP hostnames (see{" "}
+          <Link to="/identity" className="text-accent-fg underline underline-offset-2">
+            Identity sources
+          </Link>
+          ), or more flows to and from this address.
+        </span>
+      </span>
+    );
+  }
   const Icon = e.label.startsWith("Client") ? Monitor : Server;
   return (
     <span className="inline-flex items-start gap-1.5" title={`${e.basis}. Port heuristic, low confidence.`}>

@@ -103,4 +103,31 @@ test("analyst goes from an alert to a reported incident, and every step is recor
     await expect(page.getByText(/iptables for 10\.0\.0\.66 · not applied/)).toBeVisible();
     await expect(page.getByText("Amira Analyst generated a report")).toBeVisible();
   });
+
+  await test.step("the trace links ingestion, detection, triage, response and report", async () => {
+    await page.getByRole("tab", { name: "Trace" }).click();
+    await expect(page.getByText(/Imported demo-scenario-flows\.csv: 585 flows tagged IMPORTED, sha256 [0-9a-f]{16}…/)).toBeVisible();
+    await expect(page.getByText(/Raised a medium SSHPatator alert for 10\.0\.0\.66 → 10\.0\.0\.20 from rule R-BRUTEFORCE-SSH-01/)).toBeVisible();
+    await expect(page.getByText(/Triaged the SSHPatator alert: .*verdict none → true_positive/)).toBeVisible();
+    await expect(page.getByText(/Generated a blocklist simulation \(iptables\) for 10\.0\.0\.66; not applied/)).toBeVisible();
+    await expect(page.getByText("Generated the incident report.")).toBeVisible();
+    await expect(page.getByText(/Imported identity records demo-identity\.csv/)).toBeVisible();
+  });
+
+  await test.step("an account or device lookup shows the addresses it held and alerts in those windows", async () => {
+    await page.goto("/identity?lookup=UNMANAGED-66");
+    const held = page.getByRole("region", { name: "Addresses held" });
+    await expect(held.getByRole("link", { name: "10.0.0.66" })).toBeVisible();
+    await expect(held.getByRole("link", { name: "SSHPatator" })).toBeVisible();
+    await expect(page.getByText(/not necessarily this account/)).toBeVisible();
+  });
+
+  await test.step("the asset keeps a history without scan noise", async () => {
+    await page.goto("/assets/10.0.0.20");
+    const history = page.locator("section").filter({ has: page.getByRole("heading", { name: "History", exact: true }) });
+    await expect(history.getByText("First observed")).toBeVisible();
+    await expect(history.getByText(/accepted TCP\/445, TCP\/22; estimated File-sharing host \(SMB\)/)).toBeVisible();
+    await page.getByText("All identity records for this address").click();
+    await expect(page.getByText("SRV-FILES-01").last()).toBeVisible();
+  });
 });

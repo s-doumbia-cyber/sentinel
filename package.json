@@ -31,7 +31,8 @@
     "test:e2e": "npm run test:e2e -w @sentinel/e2e",
     "e2e:install": "npm run install:browsers -w @sentinel/e2e",
     "import:csv": "npm run import:csv -w @sentinel/api --",
-    "migrate:legacy": "npm run migrate:legacy -w @sentinel/api --"
+    "migrate:legacy": "npm run migrate:legacy -w @sentinel/api --",
+    "seed:demo": "npm run seed:demo -w @sentinel/api --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

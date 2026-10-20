@@ -215,7 +215,7 @@ describe("alert analysis and traceability", () => {
     expect(byStage("detect").every((e: { actor: string }) => e.actor === "Sentinel")).toBe(true);
     expect(byStage("triage")[0]).toMatchObject({ actor: "Test User", ref: { type: "alert", id: ssh.id } });
     expect(byStage("triage")[0].summary).toMatch(/verdict none → true_positive/);
-    expect(byStage("respond")[0].summary).toMatch(/nftables blocklist simulation for 10\.9\.9\.9; not applied/);
+    expect(byStage("respond")[0].summary).toMatch(/blocklist simulation \(nftables\) for 10\.9\.9\.9; not applied/);
     expect(trace.coverage).toMatchObject({ datasets: 1, alerts: 2, triageChanges: 1, identityImports: 1 });
 
     // Viewers see the chain of custody but not which identity imports exist.

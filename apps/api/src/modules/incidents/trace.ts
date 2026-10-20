@@ -48,7 +48,7 @@ function eventSummary(kind: string, p: Record<string, unknown>): string {
     case "action_recorded":
       return `Reported an action (not verified by Sentinel): ${String(p.description ?? "")}`;
     case "simulation_generated":
-      return `Generated a ${String(p.format ?? "")} blocklist simulation for ${Array.isArray(p.ips) ? p.ips.join(", ") : ""}; not applied.`;
+      return `Generated a blocklist simulation (${String(p.format ?? "")}) for ${Array.isArray(p.ips) ? p.ips.join(", ") : ""}; not applied.`;
     case "report_generated":
       return "Generated the incident report.";
     default:
