@@ -42,6 +42,23 @@ export default {
       transitionTimingFunction: { enter: "cubic-bezier(0.2, 0, 0, 1)", exit: "cubic-bezier(0.4, 0, 1, 1)" },
       transitionDuration: { fast: "120ms", base: "200ms", slow: "320ms" },
       maxWidth: { content: "1440px" },
+      // Motion explains state changes (§2.6); prefers-reduced-motion collapses all of it in index.css.
+      keyframes: {
+        "page-in": { from: { opacity: "0", transform: "translateY(4px)" }, to: { opacity: "1", transform: "none" } },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "slide-in-right": { from: { transform: "translateX(24px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
+        "zoom-in": { from: { transform: "translate(-50%, -48%) scale(0.98)", opacity: "0" }, to: { transform: "translate(-50%, -50%) scale(1)", opacity: "1" } },
+        "rise-in": { from: { transform: "translateY(8px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
+        shimmer: { "0%": { backgroundPosition: "-200% 0" }, "100%": { backgroundPosition: "200% 0" } },
+      },
+      animation: {
+        "page-in": "page-in 200ms cubic-bezier(0.2, 0, 0, 1)",
+        "fade-in": "fade-in 160ms cubic-bezier(0.2, 0, 0, 1)",
+        "slide-in-right": "slide-in-right 240ms cubic-bezier(0.2, 0, 0, 1)",
+        "zoom-in": "zoom-in 180ms cubic-bezier(0.2, 0, 0, 1)",
+        "rise-in": "rise-in 200ms cubic-bezier(0.2, 0, 0, 1)",
+        shimmer: "shimmer 1.6s linear infinite",
+      },
     },
   },
   plugins: [],

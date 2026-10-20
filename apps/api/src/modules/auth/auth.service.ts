@@ -53,7 +53,8 @@ export function toUserResponse(user: UserLike) {
       pushAlerts: prefs.pushAlerts ?? true,
       language: normalizeLanguage(prefs.language),
       accentColor: normalizeAccent(prefs.accentColor),
-      theme: prefs.theme === "light" || prefs.theme === "system" ? prefs.theme : "dark",
+      // Light is the default identity; dark only when explicitly chosen.
+      theme: prefs.theme === "dark" || prefs.theme === "system" ? prefs.theme : "light",
       density: prefs.density === "compact" ? "compact" : "comfortable",
     },
   };

@@ -17,7 +17,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Action } from "@sentinel/shared";
 import { applyPreferences, useAuth } from "@/features/auth/AuthContext";
 import { api } from "@/lib/api";
@@ -155,6 +155,7 @@ function UserMenu() {
 
 export function AppShell() {
   const { can } = useAuth();
+  const { pathname } = useLocation();
   const visible = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.requires || can(i.requires)) })).filter((g) => g.items.length);
   const mobileItems = visible.flatMap((g) => g.items).filter((i) => MOBILE.includes(i.to));
   return (
@@ -195,7 +196,8 @@ export function AppShell() {
           <UserMenu />
         </header>
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto pb-20 md:pb-0">
-          <div className="mx-auto max-w-content px-4 py-6 md:px-6">
+          {/* Keyed by route so each page enters with a short fade; query-string changes do not re-animate. */}
+          <div key={pathname} className="mx-auto max-w-content animate-page-in px-4 py-6 md:px-6 md:py-8">
             <Outlet />
           </div>
         </main>

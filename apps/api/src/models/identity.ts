@@ -19,9 +19,9 @@ export function normalizeLanguage(value: unknown): (typeof LANGUAGES)[number] {
   return "en";
 }
 
-/** The legacy UI offered a "pink" accent that the design system replaced with emerald. */
+/** Accents from earlier UIs (violet, cyan, emerald, pink) fall back to the default pine. */
 export function normalizeAccent(value: unknown): (typeof ACCENTS)[number] {
-  return typeof value === "string" && (ACCENTS as readonly string[]).includes(value) ? (value as (typeof ACCENTS)[number]) : "violet";
+  return typeof value === "string" && (ACCENTS as readonly string[]).includes(value) ? (value as (typeof ACCENTS)[number]) : "pine";
 }
 
 const userSchema = new Schema(
@@ -34,8 +34,8 @@ const userSchema = new Schema(
       emailAlerts: { type: Boolean, default: true },
       pushAlerts: { type: Boolean, default: true },
       language: { type: String, default: "en", set: normalizeLanguage },
-      accentColor: { type: String, enum: ACCENTS, default: "violet", set: normalizeAccent },
-      theme: { type: String, enum: THEMES, default: "dark" },
+      accentColor: { type: String, enum: ACCENTS, default: "pine", set: normalizeAccent },
+      theme: { type: String, enum: THEMES, default: "light" },
       density: { type: String, enum: DENSITIES, default: "comfortable" },
     },
   },

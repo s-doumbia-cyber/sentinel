@@ -4,8 +4,8 @@ export interface UserPreferences {
   emailAlerts: boolean;
   pushAlerts: boolean;
   language: "en" | "fr" | "hi";
-  accentColor: "violet" | "cyan" | "emerald";
-  theme: "dark" | "light" | "system";
+  accentColor: "pine" | "ocean" | "plum";
+  theme: "light" | "dark" | "system";
   density: "comfortable" | "compact";
 }
 

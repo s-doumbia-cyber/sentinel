@@ -5,7 +5,7 @@ import { cn } from "@/lib/format";
 import { Button } from "./Button";
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("animate-pulse rounded-md bg-surface-3/70", className)} />;
+  return <div aria-hidden className={cn("skeleton-shimmer animate-shimmer rounded-md bg-surface-3/80", className)} />;
 }
 
 export function SkeletonRows({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {

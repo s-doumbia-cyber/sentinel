@@ -6,114 +6,128 @@
  * Design tokens (docs/DESIGN_SYSTEM.md §2). Colours are "r g b" triplets so
  * Tailwind can apply alpha. Components never use raw hex values.
  *
- * Deviation, documented in ROADMAP.md decisions: filled buttons use
- * --accent-solid, a darker step of the accent, because white text on #8B5CF6
- * is 4.2:1 and fails WCAG AA for 14 px text.
+ * Identity "calm field notebook" (2026-10-20): light ivory by default, dark text,
+ * one natural accent (pine by default). Severity colours are reserved for
+ * severity. Every text/background pair below was checked for WCAG AA.
  */
 :root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: 242 238 228; /* rail */
+  --bg-1: 250 248 243; /* page: ivory */
+  --surface-1: 255 254 251; /* cards */
+  --surface-2: 247 244 237; /* inputs, drawers, popovers */
+  --surface-3: 237 232 221; /* hover, selected */
+  --border-subtle: #ece7dc;
+  --border: #ddd6c8;
+  --border-strong: #c3b9a7;
+  --text-1: 31 36 33; /* 14.9:1 on ivory */
+  --text-2: 74 82 76; /* 7.6:1 */
+  --text-3: 91 99 93; /* 5.8:1 on ivory, 5.1:1 on surface-3 */
+
+  --accent: 47 107 94; /* pine */
+  --accent-fg: 38 92 80;
+  --accent-solid: 47 107 94; /* white text 6.2:1 */
+  --accent-contrast: 255 255 255;
+  --accent-soft: rgba(47, 107, 94, 0.1);
+
+  --sev-critical: 225 29 72;
+  --sev-high: 234 88 12;
+  --sev-medium: 202 138 4;
+  --sev-low: 2 132 199;
+  --sev-info: 120 113 108;
+  --sev-ok: 21 128 61;
+  /* Darker text steps so severity labels keep 4.5:1 on their 15% tints. */
+  --sevfg-critical: 159 18 57;
+  --sevfg-high: 154 52 18;
+  --sevfg-medium: 133 77 14;
+  --sevfg-low: 7 89 133;
+  --sevfg-info: 68 64 60;
+  --sevfg-ok: 20 83 45;
+
+  --kind-live: 21 128 61;
+  --kind-replay: 14 116 144;
+  --kind-imported: 120 113 108;
+  --kind-demo: 180 83 9;
+
+  --shadow-e1: 0 1px 2px rgba(60, 48, 24, 0.06);
+  --shadow-e2: 0 10px 28px rgba(60, 48, 24, 0.12);
+  --shadow-e3: 0 24px 64px rgba(60, 48, 24, 0.18);
+  --scrim: rgba(31, 36, 33, 0.32);
+  --row-py: 10px;
+}
+
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg-0: 7 9 16;
-  --bg-1: 11 15 25;
-  --surface-1: 17 23 38;
-  --surface-2: 23 32 51;
-  --surface-3: 30 42 66;
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text-1: 232 235 244;
-  --text-2: 169 178 199;
-  --text-3: 124 135 163;
+  --bg-0: 17 19 17;
+  --bg-1: 22 24 22;
+  --surface-1: 29 32 29;
+  --surface-2: 36 40 36;
+  --surface-3: 46 51 46;
+  --border-subtle: rgba(236, 234, 227, 0.07);
+  --border: rgba(236, 234, 227, 0.12);
+  --border-strong: rgba(236, 234, 227, 0.2);
+  --text-1: 236 234 227;
+  --text-2: 185 188 180;
+  --text-3: 150 155 147;
 
-  --accent: 139 92 246;
-  --accent-fg: 167 139 250;
-  --accent-solid: 124 58 237;
-  --accent-contrast: 255 255 255;
-  --accent-soft: rgba(139, 92, 246, 0.14);
+  --accent: 111 179 162;
+  --accent-fg: 132 196 179;
+  --accent-solid: 111 179 162; /* dark text on it */
+  --accent-contrast: 17 19 17;
+  --accent-soft: rgba(111, 179, 162, 0.14);
 
   --sev-critical: 244 63 94;
   --sev-high: 251 146 60;
   --sev-medium: 250 204 21;
   --sev-low: 56 189 248;
-  --sev-info: 148 163 184;
-  --sev-ok: 52 211 153;
+  --sev-info: 168 162 158;
+  --sev-ok: 74 222 128;
   --sevfg-critical: 251 113 133;
   --sevfg-high: 253 186 116;
   --sevfg-medium: 253 224 71;
   --sevfg-low: 125 211 252;
-  --sevfg-info: 203 213 225;
-  --sevfg-ok: 110 231 183;
+  --sevfg-info: 214 211 209;
+  --sevfg-ok: 134 239 172;
 
-  --kind-live: 52 211 153;
+  --kind-live: 74 222 128;
   --kind-replay: 34 211 238;
-  --kind-imported: 148 163 184;
+  --kind-imported: 168 162 158;
   --kind-demo: 251 191 36;
 
-  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-e2: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-e3: 0 24px 64px rgba(0, 0, 0, 0.55);
-  --row-py: 10px;
+  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-e2: 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-e3: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.55);
 }
 
-[data-theme="light"] {
-  color-scheme: light;
-  --bg-0: 238 240 246;
-  --bg-1: 246 247 251;
-  --surface-1: 255 255 255;
-  --surface-2: 240 242 248;
-  --surface-3: 232 236 245;
-  --border-subtle: #e6e9f1;
-  --border: #d9deea;
-  --border-strong: #c3cadb;
-  --text-1: 15 23 42;
-  --text-2: 71 85 105;
-  --text-3: 100 116 139;
-
-  --accent: 124 58 237;
-  --accent-fg: 109 40 217;
-  --accent-solid: 124 58 237;
-  --accent-soft: rgba(124, 58, 237, 0.1);
-
-  /* Darker text steps so severity labels keep 4.5:1 on light tints. */
-  --sevfg-critical: 190 18 60;
-  --sevfg-high: 194 65 12;
-  --sevfg-medium: 161 98 7;
-  --sevfg-low: 3 105 161;
-  --sevfg-info: 71 85 105;
-  --sevfg-ok: 4 120 87;
-
-  --shadow-e1: 0 1px 2px rgba(15, 23, 42, 0.08);
-  --shadow-e2: 0 8px 24px rgba(15, 23, 42, 0.12);
-  --shadow-e3: 0 24px 64px rgba(15, 23, 42, 0.18);
-}
-
-[data-accent="cyan"] {
-  --accent: 34 211 238;
-  --accent-fg: 103 232 249;
-  --accent-solid: 34 211 238;
-  --accent-contrast: 7 9 16;
-  --accent-soft: rgba(34, 211, 238, 0.14);
-}
-[data-theme="light"][data-accent="cyan"] {
-  --accent: 8 145 178;
-  --accent-fg: 14 116 144;
-  --accent-solid: 14 116 144;
+[data-accent="ocean"] {
+  --accent: 45 95 138;
+  --accent-fg: 37 82 120;
+  --accent-solid: 45 95 138;
   --accent-contrast: 255 255 255;
-  --accent-soft: rgba(8, 145, 178, 0.1);
+  --accent-soft: rgba(45, 95, 138, 0.1);
 }
-[data-accent="emerald"] {
-  --accent: 52 211 153;
-  --accent-fg: 110 231 183;
-  --accent-solid: 52 211 153;
-  --accent-contrast: 7 9 16;
-  --accent-soft: rgba(52, 211, 153, 0.14);
+[data-theme="dark"][data-accent="ocean"] {
+  --accent: 125 170 214;
+  --accent-fg: 147 187 226;
+  --accent-solid: 125 170 214;
+  --accent-contrast: 17 19 17;
+  --accent-soft: rgba(125, 170, 214, 0.14);
 }
-[data-theme="light"][data-accent="emerald"] {
-  --accent: 5 150 105;
-  --accent-fg: 4 120 87;
-  --accent-solid: 4 120 87;
+[data-accent="plum"] {
+  --accent: 106 76 125;
+  --accent-fg: 92 64 110;
+  --accent-solid: 106 76 125;
   --accent-contrast: 255 255 255;
-  --accent-soft: rgba(5, 150, 105, 0.1);
+  --accent-soft: rgba(106, 76, 125, 0.1);
+}
+[data-theme="dark"][data-accent="plum"] {
+  --accent: 190 160 212;
+  --accent-fg: 203 178 222;
+  --accent-solid: 190 160 212;
+  --accent-contrast: 17 19 17;
+  --accent-soft: rgba(190, 160, 212, 0.14);
 }
 
 [data-density="compact"] {
@@ -171,6 +185,11 @@
     padding-top: var(--row-py);
     padding-bottom: var(--row-py);
   }
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(90deg, transparent 0%, rgb(var(--surface-1) / 0.7) 50%, transparent 100%);
+  background-size: 200% 100%;
 }
 
 @keyframes fadein {

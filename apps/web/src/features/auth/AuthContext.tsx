@@ -27,7 +27,7 @@ const ORG_KEY = "sentinel.org";
 /** Applies theme, accent and density, and caches them for the pre-paint script. */
 export function applyPreferences(p: Pick<UserPreferences, "theme" | "accentColor" | "density">) {
   const root = document.documentElement;
-  const theme = p.theme === "system" ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : p.theme;
+  const theme = p.theme === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : p.theme;
   root.setAttribute("data-theme", theme);
   root.setAttribute("data-accent", p.accentColor);
   if (p.density === "compact") root.setAttribute("data-density", "compact");

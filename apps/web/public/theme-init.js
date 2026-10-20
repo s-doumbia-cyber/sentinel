@@ -3,13 +3,13 @@
 (function () {
   var root = document.documentElement;
   try {
-    var theme = localStorage.getItem("sentinel.theme") || "dark";
-    if (theme === "system") theme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-    root.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+    var theme = localStorage.getItem("sentinel.theme") || "light";
+    if (theme === "system") theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    root.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
     var accent = localStorage.getItem("sentinel.accent");
-    if (accent === "cyan" || accent === "emerald" || accent === "violet") root.setAttribute("data-accent", accent);
+    if (accent === "ocean" || accent === "plum" || accent === "pine") root.setAttribute("data-accent", accent);
     if (localStorage.getItem("sentinel.density") === "compact") root.setAttribute("data-density", "compact");
   } catch (e) {
-    root.setAttribute("data-theme", "dark");
+    root.setAttribute("data-theme", "light");
   }
 })();

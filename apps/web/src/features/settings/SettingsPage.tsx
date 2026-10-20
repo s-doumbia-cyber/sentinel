@@ -67,8 +67,8 @@ function Profile() {
           <Field label="Theme">
             {({ id }) => (
               <Select id={id} value={p.theme} onChange={(e) => void save({ preferences: { theme: e.target.value as UserPreferences["theme"] } })}>
+                <option value="light">Light (default)</option>
                 <option value="dark">Dark</option>
-                <option value="light">Light</option>
                 <option value="system">Match system</option>
               </Select>
             )}
@@ -76,9 +76,9 @@ function Profile() {
           <Field label="Accent">
             {({ id }) => (
               <Select id={id} value={p.accentColor} onChange={(e) => void save({ preferences: { accentColor: e.target.value as UserPreferences["accentColor"] } })}>
-                <option value="violet">Violet</option>
-                <option value="cyan">Cyan</option>
-                <option value="emerald">Emerald</option>
+                <option value="pine">Pine (default)</option>
+                <option value="ocean">Ocean</option>
+                <option value="plum">Plum</option>
               </Select>
             )}
           </Field>

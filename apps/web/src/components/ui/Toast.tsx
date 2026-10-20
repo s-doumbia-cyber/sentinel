@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className={cn("pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-2 px-3 py-2.5 text-small text-fg-1 shadow-e2")}
+            className={cn("pointer-events-auto flex animate-rise-in items-start gap-2 rounded-md border bg-surface-1 px-3 py-2.5 text-small text-fg-1 shadow-e2")}
           >
             {t.kind === "success" ? (
               <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-sevfg-ok" />

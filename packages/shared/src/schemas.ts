@@ -42,8 +42,9 @@ export const changePasswordBodySchema = z.object({
 });
 
 export const LANGUAGES = ["en", "fr", "hi"] as const;
-export const ACCENTS = ["violet", "cyan", "emerald"] as const;
-export const THEMES = ["dark", "light", "system"] as const;
+/** Natural accents of the light identity; "pine" is the default. */
+export const ACCENTS = ["pine", "ocean", "plum"] as const;
+export const THEMES = ["light", "dark", "system"] as const;
 export const DENSITIES = ["comfortable", "compact"] as const;
 
 export const updateMeBodySchema = z

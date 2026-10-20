@@ -7,7 +7,7 @@ import { Button } from "./Button";
 import { Input } from "./Form";
 
 // Overlays use solid surface tokens: translucent overlays once let bright numbers bleed through (lesson 1).
-const overlay = "fixed inset-0 z-40 bg-bg-0/70 data-[state=open]:animate-[fadein_120ms_ease-out]";
+const overlay = "fixed inset-0 z-40 bg-[color:var(--scrim)] data-[state=open]:animate-fade-in";
 
 export function Dialog({
   open,
@@ -29,7 +29,7 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={overlay} />
         <DialogPrimitive.Content
-          className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-surface-2 p-6 shadow-e3"
+          className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-surface-1 p-6 shadow-e3 data-[state=open]:animate-zoom-in"
         >
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
@@ -124,7 +124,7 @@ export function Drawer({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={overlay} />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-surface-2 shadow-e3">
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-surface-1 shadow-e3 data-[state=open]:animate-slide-in-right">
           <div className="flex items-start justify-between gap-4 border-b border-subtle px-6 py-4">
             <div className="min-w-0">
               <DialogPrimitive.Title className="truncate text-h2 font-semibold text-fg-1">{title}</DialogPrimitive.Title>
