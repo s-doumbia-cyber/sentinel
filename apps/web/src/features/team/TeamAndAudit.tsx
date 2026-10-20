@@ -109,6 +109,17 @@ const ACTIONS = [
   "rule.update",
   "rule.delete",
   "alert.update",
+  "incident.correlated",
+  "incident.alerts_linked",
+  "incident.action_recorded",
+  "incident.simulation_generated",
+  "incident.report_generated",
+  "response.simulate_blocklist",
+  "asset.update",
+  "assets.refresh",
+  "identity.import",
+  "identity.import_delete",
+  "validation.run",
 ];
 
 export function AuditPage() {

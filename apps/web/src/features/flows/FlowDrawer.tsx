@@ -68,8 +68,8 @@ function Body({ flow }: { flow: Flow }) {
         <DefinitionList
           items={[
             ["Time", <span title={utcTitle(flow.timestamp)}>{formatDateTime(flow.timestamp)}</span>],
-            ["Source", <EntityChip value={`${flow.sourceIp}:${flow.sourcePort}`} />],
-            ["Destination", <EntityChip value={`${flow.destinationIp}:${flow.destinationPort}`} />],
+            ["Source", <EntityChip value={`${flow.sourceIp}:${flow.sourcePort}`} href={`/assets/${encodeURIComponent(flow.sourceIp)}`} />],
+            ["Destination", <EntityChip value={`${flow.destinationIp}:${flow.destinationPort}`} href={`/assets/${encodeURIComponent(flow.destinationIp)}`} />],
             ["Protocol", flow.protocol],
             ["Duration", flow.flowDurationMs === null ? "—" : `${formatExact(Math.round(flow.flowDurationMs))} ms`],
             ["Packets / bytes", `${formatExact(flow.totalPackets)} / ${formatBytes(flow.totalBytes)}`],

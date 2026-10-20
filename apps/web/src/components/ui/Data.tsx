@@ -5,12 +5,18 @@ import { cn, formatCount, formatExact } from "@/lib/format";
 import type { TopFeature } from "@/lib/types";
 import { Skeleton } from "./States";
 
-/** Monospace IP / identifier with a copy button. */
-export function EntityChip({ value, className }: { value: string; className?: string }) {
+/** Monospace IP / identifier with a copy button; `href` links the value (e.g. to the asset page). */
+export function EntityChip({ value, href, className }: { value: string; href?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <span className={cn("group inline-flex items-center gap-1 font-mono text-small text-fg-1", className)}>
-      {value}
+      {href ? (
+        <Link to={href} className="underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-accent-fg">
+          {value}
+        </Link>
+      ) : (
+        value
+      )}
       <button
         type="button"
         aria-label={`Copy ${value}`}

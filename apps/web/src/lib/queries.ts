@@ -3,6 +3,12 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { useAuth } from "@/features/auth/AuthContext";
 import { api } from "./api";
 import type {
+  Asset,
+  AssetDetail,
+  IdentityImport,
+  IncidentGuidance,
+  IncidentTimeline,
+  ValidationRun,
   Alert,
   AlertDetail,
   AlertSummary,
@@ -185,4 +191,52 @@ export function useAlertSummary() {
 export function useRules() {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "rules"], queryFn: () => api<{ items: Rule[] }>("/rules") });
+}
+
+export function useIncident(id: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "incident", id], queryFn: () => api<Incident>(`/incidents/${id}`), enabled: Boolean(id) });
+}
+
+export function useIncidentTimeline(id: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "incidentTimeline", id], queryFn: () => api<IncidentTimeline>(`/incidents/${id}/timeline`), enabled: Boolean(id) });
+}
+
+export function useIncidentGuidance(id: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "incidentGuidance", id], queryFn: () => api<IncidentGuidance>(`/incidents/${id}/guidance`), enabled: Boolean(id) });
+}
+
+export type AssetFilters = { q?: string; scope?: string; role?: string; includeInactive?: string };
+
+export function useAssets(filters: AssetFilters) {
+  const org = useOrgKey();
+  return useInfiniteQuery({
+    queryKey: [org, "assets", filters],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => api<Page<Asset> & { lastRefreshedAt: string | null }>("/assets", { query: { ...filters, limit: 50, cursor: pageParam } }),
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAsset(ip: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "asset", ip], queryFn: () => api<AssetDetail>(`/assets/${encodeURIComponent(ip ?? "")}`), enabled: Boolean(ip) });
+}
+
+export function useIdentityImports(enabled = true) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "identityImports"], queryFn: () => api<{ items: IdentityImport[] }>("/identity/imports"), enabled });
+}
+
+export function useValidationRuns() {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "validationRuns"], queryFn: () => api<{ items: ValidationRun[] }>("/validation/runs") });
+}
+
+export function useValidationRun(id: string | null) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "validationRun", id], queryFn: () => api<ValidationRun>(`/validation/runs/${id}`), enabled: Boolean(id) });
 }

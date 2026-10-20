@@ -1,11 +1,12 @@
-import { Bot, FilterX, ListChecks, Play, ScrollText } from "lucide-react";
-import { useMemo, type KeyboardEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Bot, FilterX, FolderPlus, ListChecks, Play, ScrollText } from "lucide-react";
+import { useMemo, useState, type KeyboardEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ALERT_STATUSES, ATTACK_CLASSES, SEVERITIES, type AlertStatus, type AlertVerdict, type AttackClass } from "@sentinel/shared";
 import { ConfidenceMeter, MitreChip, NeutralBadge, SeverityBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
 import { Card, PageHeader } from "@/components/ui/Card";
-import { DefinitionList, EntityChip, FeatureContributionChart } from "@/components/ui/Data";
+import { AnalysisPanel, AssetLink, AttributionPanel, ProvenancePanel } from "@/components/evidence/Evidence";
+import { DefinitionList, FeatureContributionChart } from "@/components/ui/Data";
 import { Select } from "@/components/ui/Form";
 import { Drawer } from "@/components/ui/Overlays";
 import { EmptyState, ErrorState, Skeleton, SkeletonRows } from "@/components/ui/States";
@@ -15,7 +16,7 @@ import { describeRule } from "@/features/rules/describe";
 import { api, errorMessage } from "@/lib/api";
 import { cn, formatDateTime, formatExact, formatWhen, utcTitle } from "@/lib/format";
 import { useAlert, useAlerts, useOrgMutation, type AlertFilters } from "@/lib/queries";
-import type { Alert } from "@/lib/types";
+import type { Alert, Incident } from "@/lib/types";
 
 export const STATUS_LABEL: Record<AlertStatus, string> = {
   open: "Open",
@@ -83,6 +84,8 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
   const update = (body: { status?: AlertStatus; verdict?: AlertVerdict | null }) =>
     patch.mutate(body, { onSuccess: () => toast.success("Alert updated"), onError: (e) => toast.error(errorMessage(e)) });
   const top = a?.explanationFlow?.scored;
+  const navigate = useNavigate();
+  const createIncident = useOrgMutation((alertIds: string[]) => api<Incident>("/incidents/from-alerts", { method: "POST", body: { alertIds } }), ["alerts", "alert", "incidents"]);
 
   return (
     <Drawer open={Boolean(id)} onOpenChange={(o) => !o && onClose()} title={a ? `${a.type} alert` : "Alert"} subtitle={a ? `Last seen ${formatWhen(a.lastSeen)}` : undefined}>
@@ -139,6 +142,39 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                 Marked {VERDICT_LABEL[a.verdict].toLowerCase()} by {a.verdictBy?.name ?? "a former member"} {a.verdictAt ? formatWhen(a.verdictAt) : ""}. Verdicts feed future retraining (roadmap 1.9).
               </p>
             )}
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">Incident</h3>
+            {a.incident ? (
+              <p className="text-small text-fg-2">
+                Part of{" "}
+                <Link to={`/incidents/${a.incident.id}`} className="font-medium text-accent-fg hover:underline">
+                  {a.incident.title}
+                </Link>{" "}
+                ({a.incident.status}).
+              </p>
+            ) : can("incidents:write") ? (
+              <Button
+                size="sm"
+                loading={createIncident.isPending}
+                onClick={() =>
+                  createIncident.mutate([a.id], {
+                    onSuccess: (inc) => navigate(`/incidents/${inc.id}`),
+                    onError: (e) => toast.error(errorMessage(e)),
+                  })
+                }
+              >
+                <FolderPlus aria-hidden className="h-4 w-4" /> Open an incident from this alert
+              </Button>
+            ) : (
+              <p className="text-small text-fg-3">Not part of an incident.</p>
+            )}
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">What we know</h3>
+            <AnalysisPanel analysis={a.analysis} />
           </section>
 
           <section>
@@ -199,13 +235,48 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
             )}
           </section>
 
-          <DefinitionList
-            items={[
-              ["Source", a.srcIp ? <EntityChip value={a.srcIp} /> : "Many sources"],
-              ["Target", a.dstIp ? <EntityChip value={a.dstIp} /> : "Many targets"],
-              ["All flows from source", a.srcIp ? <Link className="text-accent-fg hover:underline" to={`/flows?sourceIp=${encodeURIComponent(a.srcIp)}`}>Open in Flows</Link> : "—"],
-            ]}
-          />
+          <section>
+            <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">Who is involved</h3>
+            <DefinitionList
+              items={[
+                ["Source", a.srcIp ? <AssetLink ip={a.srcIp} /> : "Many sources"],
+                ["Target", a.dstIp ? <AssetLink ip={a.dstIp} /> : "Many targets"],
+                ["All flows from source", a.srcIp ? <Link className="text-accent-fg hover:underline" to={`/flows?sourceIp=${encodeURIComponent(a.srcIp)}`}>Open in Flows</Link> : "—"],
+              ]}
+            />
+            <div className="mt-3">
+              <AttributionPanel attribution={a.attribution} restricted={a.identityRestricted} ip={a.srcIp} />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">Provenance</h3>
+            <ProvenancePanel provenance={a.provenance} />
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">Change history</h3>
+            {a.history.length ? (
+              <ol className="space-y-1.5 text-small">
+                {a.history.map((h, i) => {
+                  const changes = (h.meta as { changes?: Record<string, { from: unknown; to: unknown }> }).changes ?? {};
+                  return (
+                    <li key={i} className="text-fg-2">
+                      <span className="text-fg-1">{h.actor}</span> ·{" "}
+                      {Object.entries(changes)
+                        .map(([k, v]) => `${k}: ${String(v.from ?? "none")} → ${String(v.to ?? "none")}`)
+                        .join(", ") || h.action}
+                      <span className="block text-caption text-fg-3" title={utcTitle(h.ts)}>
+                        {formatDateTime(h.ts)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="text-small text-fg-3">No analyst change yet. Created by Sentinel {formatDateTime(a.provenance.createdAt)}.</p>
+            )}
+          </section>
         </div>
       ) : null}
     </Drawer>
@@ -231,6 +302,16 @@ export function AlertsPage() {
   const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   const selected = params.get("alert");
   const run = useOrgMutation(() => api("/detections/run", { method: "POST", body: {} }), ["alerts", "alertSummary"]);
+  const navigate = useNavigate();
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const bulkIncident = useOrgMutation((alertIds: string[]) => api<Incident>("/incidents/from-alerts", { method: "POST", body: { alertIds } }), ["alerts", "incidents"]);
 
   const set = (key: string, value: string | null, keepAlert = false) => {
     const next = new URLSearchParams(params);
@@ -334,6 +415,9 @@ export function AlertsPage() {
                 <caption className="sr-only">Alerts, most recent first. Press Enter on a row to open it; J and K move between rows.</caption>
                 <thead className="text-left text-caption uppercase tracking-[0.04em] text-fg-3">
                   <tr className="border-b border-subtle">
+                    <th scope="col" className="w-10 px-4 py-2.5">
+                      <span className="sr-only">Select</span>
+                    </th>
                     {["Severity", "Type", "Source → target", "Evidence", "Confidence", "Detected by", "Status", "Last seen"].map((h) => (
                       <th key={h} scope="col" className="px-4 py-2.5 font-medium">
                         {h}
@@ -351,6 +435,16 @@ export function AlertsPage() {
                       onKeyDown={(e) => onRowKey(e, a.id)}
                       className="cursor-pointer border-b border-subtle last:border-0 hover:bg-surface-3/60 focus-visible:bg-surface-3 aria-selected:bg-accent-soft"
                     >
+                      <td className="px-4 py-row" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${a.type} alert from ${a.srcIp ?? "several sources"}`}
+                          className="h-4 w-4 accent-[rgb(var(--accent))]"
+                          checked={picked.has(a.id)}
+                          onChange={() => toggle(a.id)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td className="px-4 py-row">
                         <SeverityBadge severity={a.severity} />
                       </td>
@@ -391,6 +485,29 @@ export function AlertsPage() {
                 </li>
               ))}
             </ul>
+            {picked.size > 0 && can("incidents:write") && (
+              <div role="region" aria-label="Bulk actions" className="flex animate-rise-in flex-wrap items-center justify-between gap-3 border-t border-subtle bg-accent-soft px-4 py-3 text-small">
+                <span className="text-fg-1">{picked.size} selected</span>
+                <span className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    loading={bulkIncident.isPending}
+                    onClick={() =>
+                      bulkIncident.mutate([...picked], {
+                        onSuccess: (inc) => navigate(`/incidents/${inc.id}`),
+                        onError: (e) => toast.error(errorMessage(e)),
+                      })
+                    }
+                  >
+                    <FolderPlus aria-hidden className="h-4 w-4" /> Open an incident with these alerts
+                  </Button>
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-subtle px-4 py-3 text-small text-fg-3">
               <span>{rows.length} alerts loaded</span>
               {query.hasNextPage && (

@@ -4,11 +4,15 @@ import {
   Building2,
   ChevronsUpDown,
   Database,
+  Fingerprint,
+  Beaker,
+  Server,
   FlaskConical,
   LayoutDashboard,
   ListChecks,
   ListTree,
   LogOut,
+  MoreHorizontal,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -43,18 +47,26 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { to: "/flows", label: "Flows", icon: ListTree },
     ],
   },
-  { group: "Investigate", items: [{ to: "/incidents", label: "Incidents", icon: ShieldAlert }] },
+  {
+    group: "Investigate",
+    items: [
+      { to: "/incidents", label: "Incidents", icon: ShieldAlert },
+      { to: "/assets", label: "Assets", icon: Server },
+    ],
+  },
   {
     group: "Detect",
     items: [
       { to: "/rules", label: "Rules", icon: ListChecks },
       { to: "/models", label: "Models", icon: FlaskConical },
+      { to: "/validation", label: "Validation", icon: Beaker },
       { to: "/datasets", label: "Datasets", icon: Database },
     ],
   },
   {
     group: "Manage",
     items: [
+      { to: "/identity", label: "Identity sources", icon: Fingerprint, requires: "identity:read" },
       { to: "/team", label: "Team", icon: Users },
       { to: "/audit", label: "Audit log", icon: ScrollText, requires: "audit:read" },
       { to: "/settings", label: "Settings", icon: Settings },
@@ -62,7 +74,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   },
 ];
 
-const MOBILE = ["/", "/alerts", "/incidents", "/flows", "/settings"];
+const MOBILE = ["/", "/alerts", "/incidents", "/flows"];
 
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
@@ -153,11 +165,36 @@ function UserMenu() {
   );
 }
 
+/** Mobile bottom bar keeps four destinations; every other page stays reachable from "More". */
+function MobileMore({ items }: { items: NavItem[] }) {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const active = items.some((i) => pathname.startsWith(i.to));
+  return (
+    <Menu.Root>
+      <Menu.Trigger className={cn("flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-caption outline-none", active ? "text-accent-fg" : "text-fg-3")} aria-label="More pages">
+        <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <span>More</span>
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content side="top" align="end" sideOffset={6} className="z-50 max-h-[70vh] min-w-[220px] overflow-y-auto rounded-md border bg-surface-2 p-1 shadow-e2">
+          {items.map((i) => (
+            <Menu.Item key={i.to} onSelect={() => navigate(i.to)} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-sm px-2 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
+              <i.icon aria-hidden className="h-4 w-4" /> {i.label}
+            </Menu.Item>
+          ))}
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
 export function AppShell() {
   const { can } = useAuth();
   const { pathname } = useLocation();
   const visible = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.requires || can(i.requires)) })).filter((g) => g.items.length);
   const mobileItems = visible.flatMap((g) => g.items).filter((i) => MOBILE.includes(i.to));
+  const moreItems = visible.flatMap((g) => g.items).filter((i) => !MOBILE.includes(i.to));
   return (
     <div className="flex h-full bg-bg-1">
       <a href="#main" className="sr-only z-50 rounded-md bg-surface-2 px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
@@ -213,6 +250,7 @@ export function AppShell() {
               <span className="truncate">{i.label.replace("Command Center", "Overview")}</span>
             </NavLink>
           ))}
+          <MobileMore items={moreItems} />
         </nav>
       </div>
     </div>

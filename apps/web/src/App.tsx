@@ -13,6 +13,12 @@ const FlowsPage = lazy(() => import("@/features/flows/FlowsPage").then((m) => ({
 const DatasetsPage = lazy(() => import("@/features/datasets/DatasetsPage").then((m) => ({ default: m.DatasetsPage })));
 const ModelsPage = lazy(() => import("@/features/models/ModelsPage").then((m) => ({ default: m.ModelsPage })));
 const IncidentsPage = lazy(() => import("@/features/incidents/IncidentsPage").then((m) => ({ default: m.IncidentsPage })));
+const IncidentDetailPage = lazy(() => import("@/features/incidents/IncidentDetailPage").then((m) => ({ default: m.IncidentDetailPage })));
+const IncidentReportPage = lazy(() => import("@/features/incidents/IncidentReportPage").then((m) => ({ default: m.IncidentReportPage })));
+const AssetsPage = lazy(() => import("@/features/assets/AssetsPage").then((m) => ({ default: m.AssetsPage })));
+const AssetDetailPage = lazy(() => import("@/features/assets/AssetsPage").then((m) => ({ default: m.AssetDetailPage })));
+const IdentitySourcesPage = lazy(() => import("@/features/identity/IdentitySourcesPage").then((m) => ({ default: m.IdentitySourcesPage })));
+const ValidationPage = lazy(() => import("@/features/validation/ValidationPage").then((m) => ({ default: m.ValidationPage })));
 const TeamPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.TeamPage })));
 const AuditPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.AuditPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
@@ -52,6 +58,17 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {/* The report renders without the app chrome so it prints cleanly. */}
+      <Route
+        path="/incidents/:id/report"
+        element={
+          <Protected>
+            <Suspense fallback={<PageFallback />}>
+              <IncidentReportPage />
+            </Suspense>
+          </Protected>
+        }
+      />
       <Route
         element={
           <Protected>
@@ -67,6 +84,18 @@ export default function App() {
           { path: "/datasets", el: <DatasetsPage /> },
           { path: "/models", el: <ModelsPage /> },
           { path: "/incidents", el: <IncidentsPage /> },
+          { path: "/incidents/:id", el: <IncidentDetailPage /> },
+          { path: "/assets", el: <AssetsPage /> },
+          { path: "/assets/:ip", el: <AssetDetailPage /> },
+          { path: "/validation", el: <ValidationPage /> },
+          {
+            path: "/identity",
+            el: (
+              <RequireRole action="identity:read">
+                <IdentitySourcesPage />
+              </RequireRole>
+            ),
+          },
           { path: "/team", el: <TeamPage /> },
           {
             path: "/audit",
