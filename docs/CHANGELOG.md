@@ -75,6 +75,7 @@ All notable changes. Dates are UTC.
   ML pytest with a report-only pip-audit, Playwright + axe e2e with cached browsers and MongoDB
   binaries and a failure report artefact, Docker build; concurrency cancels superseded runs.
 - Minimum Node raised to 22 (Node 20 is end-of-life): `engines`, Docker base images, docs.
+- First GitHub run green on all five jobs; runners pinned to `ubuntu-24.04` before `ubuntu-latest` moves to Ubuntu 26.
 
 ### Context over time, traceability and a real demo workspace
 - Asset history (`asset_events`, append-only): first observed, new or vanished services (ignoring
