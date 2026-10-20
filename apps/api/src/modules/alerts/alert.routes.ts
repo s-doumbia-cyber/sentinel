@@ -15,12 +15,16 @@ import type { AppConfig } from "../../config/index.js";
 import { AppError } from "../../lib/errors.js";
 import { ah, authOf, parsed, validate } from "../../lib/http.js";
 import { PolicyRouter } from "../../lib/routes.js";
+import { can, estimateDeviceType, IDENTITY_SOURCE_LABEL } from "@sentinel/shared";
+import { Asset } from "../../models/context.js";
 import { User } from "../../models/identity.js";
-import { Alert, Flow, Rule, type AlertDoc } from "../../models/tenant.js";
+import { Alert, AuditLog, Dataset, Flow, Incident, Rule, type AlertDoc } from "../../models/tenant.js";
 import { auditFromRequest } from "../audit/audit.service.js";
 import { toFlowResponse, type LeanFlow } from "../flows/flow.dto.js";
 import { decodeCursor, encodeCursor } from "../flows/flow.filters.js";
+import { attributeAddress } from "../identity/identity.service.js";
 import { definitionOf } from "../rules/rule.service.js";
+import { buildAlertAnalysis } from "./analysis.js";
 
 const SEVERITY_BY_RANK = Object.fromEntries(SEVERITIES.map((s) => [severityRank(s), s])) as Record<number, Severity>;
 
@@ -118,7 +122,7 @@ export function alertRoutes(config: AppConfig): PolicyRouter {
     "alerts:read",
     validate("params", z.object({ id: objectIdSchema })),
     ah(async (req, res) => {
-      const { orgId } = authOf(req);
+      const { orgId, role } = authOf(req);
       const { id } = parsed<{ id: string }>(req, "params");
       const alert = await Alert.findOne({ orgId, _id: id }).lean<LeanAlert>();
       if (!alert) throw AppError.notFound("Alert");
@@ -129,8 +133,73 @@ export function alertRoutes(config: AppConfig): PolicyRouter {
         alert.ruleIds.length ? Rule.find({ orgId, key: { $in: alert.ruleIds } }).lean() : [],
         alert.verdictBy ? User.findById(alert.verdictBy).select("name").lean() : null,
       ]);
+      // Provenance and context: where the evidence came from, what else is known, who changed what.
+      const evidenceMeta = await Flow.aggregate<{ _id: { d: unknown; k: string; g: string | null }; n: number }>([
+        { $match: { orgId, _id: { $in: alert.flowIds } } },
+        { $group: { _id: { d: "$datasetId", k: "$sourceKind", g: "$groundTruthLabel" }, n: { $sum: 1 } } },
+      ]);
+      const datasetIds = [...new Set(evidenceMeta.map((e) => e._id.d).filter(Boolean).map(String))];
+      const [datasets, targetAsset, history, incident] = await Promise.all([
+        datasetIds.length ? Dataset.find({ orgId, _id: { $in: datasetIds } }).select("name fileSha256 sourceKind createdAt uploadedBy").lean() : [],
+        alert.dstIp ? Asset.findOne({ orgId, ip: alert.dstIp }).lean() : null,
+        AuditLog.find({ orgId, "target.type": "alert", "target.id": String(alert._id) }).sort({ ts: 1 }).limit(100).lean(),
+        alert.incidentId ? Incident.findOne({ orgId, _id: alert.incidentId }).select("title status").lean() : null,
+      ]);
+      const people = await User.find({ _id: { $in: [...datasets.map((d) => d.uploadedBy), ...history.map((h) => h.actorId)].filter(Boolean) } })
+        .select("name")
+        .lean();
+      const nameOf = (uid: unknown) => (uid ? (people.find((p) => String(p._id) === String(uid))?.name ?? "Former member") : null);
+      const groundTruth: Record<string, number> = {};
+      for (const e of evidenceMeta) if (e._id.g) groundTruth[e._id.g] = (groundTruth[e._id.g] ?? 0) + e.n;
+      const identityAllowed = can(role, "identity:read");
+      const attribution = identityAllowed && alert.srcIp ? await attributeAddress(orgId, alert.srcIp, alert.firstSeen, alert.lastSeen) : null;
+      const ruleDefs = rules.map((rule) => ({ def: definitionOf(rule), version: rule.version }));
+      const analysis = buildAlertAnalysis({
+        type: alert.type as AttackClass,
+        srcIp: alert.srcIp ?? null,
+        dstIp: alert.dstIp ?? null,
+        dstPort: alert.dstPort ?? null,
+        count: alert.count,
+        firstSeen: alert.firstSeen,
+        lastSeen: alert.lastSeen,
+        maxConfidence: alert.maxConfidence,
+        modelVersions: alert.modelVersions,
+        rules: ruleDefs.map(({ def, version }) => ({ key: def.key, name: def.name, version, window: def.window, gte: def.condition.gte, distinct: def.condition.distinct })),
+        ruleHits: alert.ruleHits.map((h) => ({ ruleKey: h.ruleKey ?? "", value: h.value ?? 0, flowCount: h.flowCount ?? 0 })),
+        severity: SEVERITY_BY_RANK[alert.severityRank] ?? "info",
+        status: alert.status,
+        evidenceFlows: alert.flowIds.length,
+        sourceKinds: [...new Set(evidenceMeta.map((e) => e._id.k))].sort(),
+        datasets: datasets.map((d) => ({ name: d.name, sha256: d.fileSha256 ?? null })),
+        groundTruth,
+        targetEstimate: targetAsset
+          ? estimateDeviceType(targetAsset.services.map((x) => ({ port: x.port ?? 0, protocol: x.protocol ?? "", flows: x.flows ?? 0 })), targetAsset.flowsAsSource)
+          : null,
+        attribution: attribution
+          ? attribution.candidates.map((c) => ({ label: c.username ?? c.hostname ?? c.mac ?? "unknown", confidence: c.confidence, source: IDENTITY_SOURCE_LABEL[c.source] }))
+          : null,
+        connectedIdentitySources: attribution?.connectedSources.length ?? 0,
+      });
       res.json({
         ...toAlertResponse(alert),
+        analysis,
+        attribution,
+        identityRestricted: !identityAllowed,
+        incident: incident ? { id: String(incident._id), title: incident.title, status: incident.status } : null,
+        provenance: {
+          datasets: datasets.map((d) => ({
+            id: String(d._id),
+            name: d.name,
+            sha256: d.fileSha256 ?? null,
+            sourceKind: d.sourceKind,
+            importedAt: (d as { createdAt?: Date }).createdAt ?? null,
+            importedBy: nameOf(d.uploadedBy),
+          })),
+          models: alert.modelVersions,
+          rules: ruleDefs.map(({ def, version }) => ({ key: def.key, version })),
+          createdAt: alert.createdAt,
+        },
+        history: history.map((h) => ({ ts: h.ts, actor: nameOf(h.actorId) ?? "Sentinel", action: h.action, meta: h.meta })),
         verdictBy: verdictUser ? { id: String(verdictUser._id), name: verdictUser.name } : null,
         verdictAt: alert.verdictAt ?? null,
         ruleHits: alert.ruleHits,

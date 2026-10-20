@@ -54,6 +54,8 @@ const orgSchema = new Schema(
     settings: {
       /** Model confidence below this marks a verdict `needsReview` (docs/ML_AND_DETECTION.md §8). */
       needsReviewThreshold: { type: Number, default: 0.6, min: 0, max: 1 },
+      /** Alerts from the same source within this window are grouped into one incident (docs/PRODUCT_SPEC.md F5). */
+      correlationWindowMinutes: { type: Number, default: 15, min: 1, max: 1440 },
       /** Active model version per feature schema, chosen by an Owner/Admin of this org. */
       activeModels: { type: Map, of: String, default: () => new Map() },
     },

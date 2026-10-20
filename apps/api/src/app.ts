@@ -20,7 +20,9 @@ import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { datasetRoutes } from "./modules/datasets/dataset.routes.js";
 import { flowRoutes } from "./modules/flows/flow.routes.js";
+import { CorrelationService } from "./modules/incidents/correlation.service.js";
 import { incidentRoutes } from "./modules/incidents/incident.routes.js";
+import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
@@ -54,9 +56,13 @@ export function createApp(options: AppOptions): SentinelApp {
   const alerts = new AlertService();
   const scoring = new ScoringService(ml, logger, alerts);
   const rules = new RuleService(alerts, logger);
+  const correlation = new CorrelationService(logger);
   const scheduleScoring = (orgId: Types.ObjectId) => {
     if (!config.ml.url && !options.ml) return;
-    jobs.run(`score:${String(orgId)}`, () => scoring.scorePending(orgId));
+    jobs.run(`score:${String(orgId)}`, async () => {
+      await scoring.scorePending(orgId);
+      await correlation.correlate(orgId);
+    });
   };
   const scheduleAssetRefresh = (orgId: Types.ObjectId) => {
     jobs.run(`assets:${String(orgId)}`, () => refreshAssets(orgId, logger));
@@ -66,6 +72,7 @@ export function createApp(options: AppOptions): SentinelApp {
     jobs.run(`detect:${String(orgId)}`, async () => {
       await rules.run(orgId, { datasetId });
       await scoring.alertUnalerted(orgId, datasetId);
+      await correlation.correlate(orgId);
     });
   };
 
@@ -143,6 +150,7 @@ export function createApp(options: AppOptions): SentinelApp {
       },
     }),
     incidentRoutes(config),
+    incidentWorkflowRoutes(config),
     memberRoutes(config),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),
