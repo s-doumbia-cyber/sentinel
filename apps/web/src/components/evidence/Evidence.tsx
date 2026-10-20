@@ -70,6 +70,9 @@ export function AttributionPanel({ attribution, restricted, ip }: { attribution:
                 {c.username ?? c.hostname ?? c.mac}
                 {c.username && c.hostname && <span className="font-normal text-fg-2">on {c.hostname}</span>}
                 <NeutralBadge className={CONFIDENCE_STYLE[c.confidence]}>{c.confidence} confidence</NeutralBadge>
+                <Link to={`/identity?lookup=${encodeURIComponent(c.username ?? c.hostname ?? c.mac ?? "")}`} className="ml-auto text-caption font-normal text-accent-fg underline underline-offset-2">
+                  Other addresses it held
+                </Link>
               </p>
               <p className="mt-1 text-caption text-fg-3">
                 {IDENTITY_SOURCE_LABEL[c.source]} · valid {formatDateTime(c.validFrom)}

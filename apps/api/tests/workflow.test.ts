@@ -1,3 +1,6 @@
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { Org } from "../src/models/identity.js";
@@ -179,5 +182,48 @@ describe("alert analysis and traceability", () => {
     expect(text("unknown")).toMatch(/Who operated 10\.8\.8\.8: no identity record covers this time window \(no identity source is connected\)/);
     expect(d.provenance.datasets[0]).toMatchObject({ importedBy: "Test User", sourceKind: "IMPORTED" });
     expect(d.history.map((h: { action: string; actor: string }) => `${h.action}:${h.actor}`)).toEqual(["alert.update:Test User"]);
+  });
+
+  it("traces an incident from ingestion to report, in recorded order", async () => {
+    const { u, auth } = await setup([...scan("10.9.9.9", "7/7/2017 3:40"), ...sshBurst("10.9.9.9", "7/7/2017 3:45")]);
+    const identity = path.join(tmpdir(), `sentinel-trace-identity-${Date.now()}.csv`);
+    writeFileSync(identity, ["ip,start,end,source,username,hostname,mac", "10.9.9.9,2017-07-07T03:00:00Z,2017-07-07T05:00:00Z,dhcp,,KALI-LAB,"].join(String.fromCharCode(10)));
+    await request(sa.app).post(`${API}/identity/imports`).set(auth).attach("file", identity).expect(201);
+    const [inc] = (await request(sa.app).get(`${API}/incidents`).set(auth)).body.items;
+    const ssh = (await request(sa.app).get(`${API}/alerts?type=SSHPatator`).set(auth)).body.items[0];
+    await request(sa.app).patch(`${API}/alerts/${ssh.id}`).set(auth).send({ verdict: "true_positive" }).expect(200);
+    await request(sa.app).post(`${API}/response/blocklist`).set(auth).send({ ips: ["10.9.9.9"], format: "nftables", incidentId: inc.id }).expect(200);
+    const report = (await request(sa.app).post(`${API}/incidents/${inc.id}/report`).set(auth).expect(200)).body;
+    // The report carries the chain of custody up to its own generation.
+    expect(report.trace[0].stage).toBe("ingest");
+    expect(report.trace.map((e: { stage: string }) => e.stage)).toContain("respond");
+
+    const trace = (await request(sa.app).get(`${API}/incidents/${inc.id}/trace`).set(auth)).body;
+    const stages = trace.entries.map((e: { stage: string }) => e.stage);
+    // Recorded order: the import, then detection, then the analyst's work.
+    expect(stages[0]).toBe("ingest");
+    expect(stages.indexOf("detect")).toBeLessThan(stages.indexOf("triage"));
+    expect(stages.indexOf("triage")).toBeLessThan(stages.indexOf("respond"));
+    expect(stages.at(-1)).toBe("report");
+    expect(stages).toContain("context");
+    const byStage = (s: string) => trace.entries.filter((e: { stage: string }) => e.stage === s);
+    expect(byStage("ingest")[0]).toMatchObject({ actor: "Test User", ref: { type: "dataset" } });
+    expect(byStage("ingest")[0].summary).toMatch(/flows tagged IMPORTED, sha256 [0-9a-f]{16}…/);
+    const detected = byStage("detect").map((e: { summary: string }) => e.summary).join(" ");
+    expect(detected).toMatch(/PortScan alert .* from rule R-PORTSCAN-01/);
+    expect(detected).toMatch(/SSHPatator alert .* from rule R-BRUTEFORCE-SSH-01/);
+    expect(byStage("detect").every((e: { actor: string }) => e.actor === "Sentinel")).toBe(true);
+    expect(byStage("triage")[0]).toMatchObject({ actor: "Test User", ref: { type: "alert", id: ssh.id } });
+    expect(byStage("triage")[0].summary).toMatch(/verdict none → true_positive/);
+    expect(byStage("respond")[0].summary).toMatch(/nftables blocklist simulation for 10\.9\.9\.9; not applied/);
+    expect(trace.coverage).toMatchObject({ datasets: 1, alerts: 2, triageChanges: 1, identityImports: 1 });
+
+    // Viewers see the chain of custody but not which identity imports exist.
+    const viewer = await addMember(u.orgId, "Viewer");
+    const vt = (await request(sa.app).get(`${API}/incidents/${inc.id}/trace`).set("Authorization", `Bearer ${viewer.token}`)).body;
+    expect(vt.entries.some((e: { stage: string }) => e.stage === "context")).toBe(false);
+    expect(vt.coverage.identityImports).toBeNull();
+    const other = await registerUser(sa);
+    expect((await request(sa.app).get(`${API}/incidents/${inc.id}/trace`).set("Authorization", `Bearer ${other.token}`)).status).toBe(404);
   });
 });

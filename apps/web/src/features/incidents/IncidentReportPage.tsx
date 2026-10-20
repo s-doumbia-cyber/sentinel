@@ -157,6 +157,16 @@ export function IncidentReportPage() {
               </ol>
             </Section>
 
+            <Section title="Chain of custody (recorded time, UTC)">
+              <ol className="space-y-1 text-small text-fg-2">
+                {r.trace.map((e, i) => (
+                  <li key={`${e.ts}-${i}`}>
+                    <span className="font-mono">{iso(e.ts)}</span> · {e.stage} · {e.actor ?? "no user recorded"}: {e.summary}
+                  </li>
+                ))}
+              </ol>
+            </Section>
+
             <Section title="Provenance">
               <ul className="space-y-1 text-small text-fg-2">
                 {r.provenance.datasets.map((d) => (

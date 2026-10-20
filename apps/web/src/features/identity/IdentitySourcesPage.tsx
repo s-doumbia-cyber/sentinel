@@ -12,6 +12,7 @@ import { ApiError, api, errorMessage, uploadWithProgress } from "@/lib/api";
 import { formatExact, formatWhen, utcTitle } from "@/lib/format";
 import { useIdentityImports, useOrgMutation } from "@/lib/queries";
 import type { IdentityImport } from "@/lib/types";
+import { IdentityLookupCard } from "./IdentityContext";
 import { useQueryClient } from "@tanstack/react-query";
 
 const TEMPLATE = `ip,start,end,source,username,hostname,mac
@@ -96,6 +97,7 @@ export function IdentitySourcesPage() {
           </CardBody>
         </Card>
       </div>
+      {readable && <IdentityLookupCard />}
       <Card className="overflow-hidden">
         <CardHeader title="Imported sources" />
         {!readable ? (

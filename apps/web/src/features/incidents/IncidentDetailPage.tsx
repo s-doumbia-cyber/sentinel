@@ -14,6 +14,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { api, errorMessage } from "@/lib/api";
 import { cn, formatDateTime, formatWhen, utcTitle } from "@/lib/format";
 import { useIncident, useIncidentGuidance, useIncidentTimeline, useMembers, useOrgMutation } from "@/lib/queries";
+import { IncidentTrace } from "./IncidentTrace";
 import type { Incident, IncidentLogEntry, IncidentStatus, Priority } from "@/lib/types";
 
 const ORIGIN_LABEL: Record<Incident["origin"], string> = {
@@ -399,8 +400,8 @@ function Response({ id }: { id: string }) {
   );
 }
 
-const TABS = ["overview", "timeline", "log", "response"] as const;
-const TAB_LABEL: Record<(typeof TABS)[number], string> = { overview: "Overview", timeline: "Attack timeline", log: "Investigation log", response: "Response" };
+const TABS = ["overview", "timeline", "log", "response", "trace"] as const;
+const TAB_LABEL: Record<(typeof TABS)[number], string> = { overview: "Overview", timeline: "Attack timeline", log: "Investigation log", response: "Response", trace: "Trace" };
 
 export function IncidentDetailPage() {
   const { id = "" } = useParams();
@@ -443,6 +444,9 @@ export function IncidentDetailPage() {
         </Tabs.Content>
         <Tabs.Content value="response" className="animate-page-in">
           <Response id={id} />
+        </Tabs.Content>
+        <Tabs.Content value="trace" className="animate-page-in">
+          <IncidentTrace id={id} />
         </Tabs.Content>
       </Tabs.Root>
     </>

@@ -5,11 +5,12 @@ import type { AppConfig } from "../../config/index.js";
 import { AppError } from "../../lib/errors.js";
 import { ah, authOf, parsed, validate } from "../../lib/http.js";
 import { PolicyRouter } from "../../lib/routes.js";
-import { Asset, type AssetDoc } from "../../models/context.js";
+import { Asset, AssetEvent, type AssetDoc } from "../../models/context.js";
 import { Alert, Flow, Incident } from "../../models/tenant.js";
 import { auditFromRequest } from "../audit/audit.service.js";
 import { decodeCursor, encodeCursor } from "../flows/flow.filters.js";
 import { attributeAddress } from "../identity/identity.service.js";
+import { userNames } from "../incidents/incident.dto.js";
 
 const SEVERITY_BY_RANK = Object.fromEntries(SEVERITIES.map((s) => [severityRank(s), s])) as Record<number, Severity>;
 const ipParams = z.object({ ip: z.string().ip() });
@@ -20,6 +21,10 @@ const listQuery = z.object({
   scope: z.enum(["internal", "external"]).optional(),
   role: z.enum(["server", "client"]).optional(),
   includeInactive: z.enum(["true"]).optional(),
+});
+const historyQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  cursor: z.string().max(200).optional(),
 });
 
 type LeanAsset = AssetDoc;
@@ -162,6 +167,40 @@ export function assetRoutes(config: AppConfig, deps: AssetRouteDeps): PolicyRout
   );
 
   r.route(
+    "get",
+    "/assets/:ip/history",
+    "assets:read",
+    validate("params", ipParams),
+    validate("query", historyQuery),
+    ah(async (req, res) => {
+      const { orgId } = authOf(req);
+      const { ip } = parsed<{ ip: string }>(req, "params");
+      const q = parsed<z.infer<typeof historyQuery>>(req, "query");
+      if (!(await Asset.exists({ orgId, ip }))) throw AppError.notFound("Asset");
+      const filter: Record<string, unknown> = { orgId, ip };
+      if (q.cursor) {
+        const c = decodeCursor(q.cursor);
+        filter.$or = [{ ts: { $lt: c.t } }, { ts: c.t, _id: { $lt: c.id } }];
+      }
+      const rows = await AssetEvent.find(filter).sort({ ts: -1, _id: -1 }).limit(q.limit + 1).lean();
+      const page = rows.slice(0, q.limit);
+      const names = await userNames(page.map((e) => e.actorId));
+      const last = page.at(-1);
+      res.json({
+        items: page.map((e) => ({
+          id: String(e._id),
+          kind: e.kind,
+          ts: e.ts,
+          eventTime: e.eventTime ?? null,
+          actor: e.actorId ? (names.get(String(e.actorId)) ?? "Deleted user") : null,
+          detail: e.detail ?? {},
+        })),
+        nextCursor: rows.length > q.limit && last ? encodeCursor(last.ts, last._id) : null,
+      });
+    }),
+  );
+
+  r.route(
     "patch",
     "/assets/:ip",
     "assets:write",
@@ -182,6 +221,8 @@ export function assetRoutes(config: AppConfig, deps: AssetRouteDeps): PolicyRout
       const asset = await Asset.findOneAndUpdate({ orgId, ip }, { $set: body }, { new: true }).lean<LeanAsset>();
       if (!asset) throw AppError.notFound("Asset");
       await auditFromRequest(req, "asset.update", { type: "asset", id: ip }, { before: { notes: before.notes, tags: before.tags }, after: body });
+      // Analyst knowledge is part of the asset's history; the text itself stays in the audit log.
+      await AssetEvent.create({ orgId, ip, kind: "notes_updated", actorId: authOf(req).userId, detail: { fields: Object.keys(body).sort() } });
       res.json(toAssetResponse(asset));
     }),
   );

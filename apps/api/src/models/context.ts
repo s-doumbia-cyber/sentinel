@@ -20,6 +20,10 @@ const assetSchema = new Schema(
     distinctPeers: { type: Number, default: 0 },
     // Accepted ports observed; `services` keeps only the busiest ones.
     distinctServices: { type: Number, default: 0 },
+    /** Every "PROTO/port" accepted with at least MIN_SERVICE_FLOWS flows: the baseline history diffs against. */
+    serviceKeys: { type: [String], default: [] },
+    /** Device estimate label at the last refresh, so a change can be recorded. */
+    estimateLabel: { type: String, default: null },
     sourceKinds: { type: [String], default: [] },
     /** Analyst-provided context. Kept across refreshes. */
     notes: { type: String, default: "", maxlength: 5000 },
@@ -36,6 +40,44 @@ tenantGuard(assetSchema, "Asset");
 
 export type AssetDoc = InferSchemaType<typeof assetSchema> & { _id: Types.ObjectId };
 export const Asset = mongoose.model("Asset", assetSchema);
+
+// ---- Asset history: what changed in the inventory, and when we noticed --------------
+
+export const ASSET_EVENT_KINDS = [
+  "first_observed",
+  "service_observed",
+  "service_gone",
+  "estimate_changed",
+  "became_inactive",
+  "reactivated",
+  "notes_updated",
+] as const;
+export type AssetEventKind = (typeof ASSET_EVENT_KINDS)[number];
+
+const assetEventSchema = new Schema(
+  {
+    orgId: orgRef,
+    ip: { type: String, required: true },
+    kind: { type: String, enum: ASSET_EVENT_KINDS, required: true },
+    /** Wall-clock time Sentinel recorded the change (inventory refresh or analyst edit). */
+    ts: { type: Date, required: true, default: () => new Date() },
+    /** Event time in the flows when it is known (e.g. first flow of a new service). */
+    eventTime: { type: Date, default: null },
+    /** Null when Sentinel recorded it during a refresh. */
+    actorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    detail: { type: Schema.Types.Mixed, default: {} },
+  },
+  { versionKey: false },
+);
+assetEventSchema.index({ orgId: 1, ip: 1, ts: -1, _id: -1 });
+tenantGuard(assetEventSchema, "AssetEvent");
+for (const op of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"] as const) {
+  assetEventSchema.pre(op, () => {
+    throw new Error("asset_events is append-only");
+  });
+}
+export type AssetEventDoc = InferSchemaType<typeof assetEventSchema> & { _id: Types.ObjectId };
+export const AssetEvent = mongoose.model("AssetEvent", assetEventSchema, "asset_events");
 
 // ---- Identity sources: imported VPN / DHCP / auth / EDR / directory records ----------
 
@@ -79,4 +121,4 @@ tenantGuard(identityObservationSchema, "IdentityObservation");
 export type IdentityObservationDoc = InferSchemaType<typeof identityObservationSchema> & { _id: Types.ObjectId };
 export const IdentityObservation = mongoose.model("IdentityObservation", identityObservationSchema, "identity_observations");
 
-export const CONTEXT_MODELS = [Asset, IdentityImport, IdentityObservation] as const;
+export const CONTEXT_MODELS = [Asset, AssetEvent, IdentityImport, IdentityObservation] as const;

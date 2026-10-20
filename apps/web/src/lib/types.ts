@@ -390,6 +390,7 @@ export interface IncidentReport {
   }[];
   response: { recommendations: { type: AttackClass; confirm: string[]; contain: string[] }[]; recordedActions: IncidentLogEntry[]; simulations: IncidentLogEntry[]; enforcement: string };
   investigationLog: IncidentLogEntry[];
+  trace: IncidentTrace["entries"];
   provenance: { datasets: { name: string; sha256: string | null; sourceKind: SourceKind; importedAt: string | null }[]; models: string[]; rules: string[] };
   limitations: string[];
 }
@@ -411,6 +412,57 @@ export interface Asset {
   active: boolean;
   refreshedAt: string;
   activeAlerts?: number;
+}
+
+export type TraceStage = "ingest" | "context" | "detect" | "triage" | "investigate" | "respond" | "report";
+
+export interface IncidentTrace {
+  entries: { ts: string; stage: TraceStage; actor: string | null; summary: string; ref: { type: "dataset" | "alert" | "incident" | "identity_import"; id: string } }[];
+  coverage: { datasets: number; alerts: number; triageChanges: number; incidentEvents: number; identityImports: number | null };
+  notes: string[];
+}
+
+export interface IdentityRecord {
+  id: string;
+  ip: string;
+  username: string | null;
+  hostname: string | null;
+  mac: string | null;
+  source: IdentitySource;
+  sourceLabel: string;
+  validFrom: string;
+  validTo: string | null;
+  importName: string | null;
+}
+
+export interface IdentityLookup {
+  query: string;
+  matchedOn: ("username" | "hostname" | "mac")[];
+  records: IdentityRecord[];
+  addresses: {
+    ip: string;
+    scope: "internal" | "external" | "unknown";
+    records: number;
+    from: string;
+    to: string;
+    alerts: { id: string; type: AttackClass; severity: Severity; status: AlertStatus; role: "source" | "target"; firstSeen: string; lastSeen: string; duringRecords: string[] }[];
+  }[];
+  truncated: boolean;
+  caveats: string[];
+}
+
+export type AssetEventKind = "first_observed" | "service_observed" | "service_gone" | "estimate_changed" | "became_inactive" | "reactivated" | "notes_updated";
+
+export interface AssetEvent {
+  id: string;
+  kind: AssetEventKind;
+  /** When Sentinel recorded the change. */
+  ts: string;
+  /** When it happened in the flows, if known. */
+  eventTime: string | null;
+  /** Null when Sentinel recorded it during an inventory refresh. */
+  actor: string | null;
+  detail: Record<string, unknown>;
 }
 
 export interface AssetDetail {

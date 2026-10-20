@@ -5,9 +5,13 @@ import { api } from "./api";
 import type {
   Asset,
   AssetDetail,
+  AssetEvent,
+  IdentityLookup,
+  IdentityRecord,
   IdentityImport,
   IncidentGuidance,
   IncidentTimeline,
+  IncidentTrace,
   ValidationRun,
   Alert,
   AlertDetail,
@@ -198,6 +202,12 @@ export function useIncident(id: string | null) {
   return useQuery({ queryKey: [org, "incident", id], queryFn: () => api<Incident>(`/incidents/${id}`), enabled: Boolean(id) });
 }
 
+/** Keyed under "incidentTimeline" so every incident mutation that refreshes the timeline refreshes the trace too. */
+export function useIncidentTrace(id: string) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "incidentTimeline", id, "trace"], queryFn: () => api<IncidentTrace>(`/incidents/${id}/trace`) });
+}
+
 export function useIncidentTimeline(id: string | null) {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "incidentTimeline", id], queryFn: () => api<IncidentTimeline>(`/incidents/${id}/timeline`), enabled: Boolean(id) });
@@ -224,6 +234,41 @@ export function useAssets(filters: AssetFilters) {
 export function useAsset(ip: string | null) {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "asset", ip], queryFn: () => api<AssetDetail>(`/assets/${encodeURIComponent(ip ?? "")}`), enabled: Boolean(ip) });
+}
+
+/** Keyed under "asset" so saving notes or refreshing the asset also refreshes its history. */
+export function useAssetHistory(ip: string) {
+  const org = useOrgKey();
+  return useInfiniteQuery({
+    queryKey: [org, "asset", ip, "history"],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => api<Page<AssetEvent>>(`/assets/${encodeURIComponent(ip)}/history`, { query: { limit: 25, cursor: pageParam } }),
+    getNextPageParam: (last) => last.nextCursor,
+  });
+}
+
+export function useIdentityHistory(ip: string, enabled: boolean) {
+  const org = useOrgKey();
+  return useQuery({
+    queryKey: [org, "identityHistory", ip],
+    queryFn: () => api<{ ip: string; records: IdentityRecord[]; truncated: boolean }>(`/identity/addresses/${encodeURIComponent(ip)}`),
+    enabled,
+  });
+}
+
+/** Each lookup is audited server-side, so it only runs when the analyst asks, never on focus or retry. */
+export function useIdentityLookup(q: string) {
+  const org = useOrgKey();
+  return useQuery({
+    queryKey: [org, "identityLookup", q],
+    queryFn: () => api<IdentityLookup>("/identity/lookup", { query: { q } }),
+    enabled: q.length > 0,
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  });
 }
 
 export function useIdentityImports(enabled = true) {

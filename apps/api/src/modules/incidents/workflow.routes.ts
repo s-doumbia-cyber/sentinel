@@ -28,6 +28,7 @@ import { linkAlerts } from "./correlation.service.js";
 import { recordIncidentEvent } from "./events.js";
 import { respondWith, userNames, type LeanIncident } from "./incident.dto.js";
 import { buildAttackTimeline, type TimelineAlert } from "./timeline.js";
+import { buildIncidentTrace } from "./trace.js";
 
 const SEVERITY_BY_RANK = Object.fromEntries(SEVERITIES.map((s) => [severityRank(s), s])) as Record<number, Severity>;
 const PRIORITY: Record<Severity, "P1" | "P2" | "P3" | "P4"> = { critical: "P1", high: "P2", medium: "P3", low: "P4", info: "P4" };
@@ -265,6 +266,10 @@ export function incidentWorkflowRoutes(config: AppConfig): PolicyRouter {
         }),
       );
       const types = [...new Set(alerts.map((a) => a.type))];
+      const trace = await buildIncidentTrace(orgId, incident._id, {
+        identity: identityAllowed,
+        entityIps: (incident.entities ?? []).map((e) => e.value ?? "").filter(Boolean),
+      });
       const generatedAt = new Date();
       const report = {
         meta: {
@@ -285,6 +290,8 @@ export function incidentWorkflowRoutes(config: AppConfig): PolicyRouter {
           enforcement: "Sentinel did not block, isolate or change anything. Recorded actions were reported by analysts and not verified by Sentinel.",
         },
         investigationLog: log,
+        // Chain of custody up to this report (the report_generated event itself is recorded just after).
+        trace: trace.entries,
         provenance: {
           datasets: datasets.map((d) => ({ name: d.name, sha256: d.fileSha256 ?? null, sourceKind: d.sourceKind, importedAt: (d as { createdAt?: Date }).createdAt ?? null })),
           models: [...new Set(alertDocs.flatMap((a) => a.modelVersions))],

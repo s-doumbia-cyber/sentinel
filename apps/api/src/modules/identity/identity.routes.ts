@@ -11,6 +11,7 @@ import { ah, authOf, parsed, validate } from "../../lib/http.js";
 import { PolicyRouter } from "../../lib/routes.js";
 import { IdentityImport, IdentityObservation } from "../../models/context.js";
 import { auditFromRequest } from "../audit/audit.service.js";
+import { identityHistoryForAddress, lookupIdentity } from "./identity.context.js";
 import { attributeAddress, importIdentityCsv } from "./identity.service.js";
 
 const MAX_IDENTITY_BYTES = 20 * 1024 * 1024;
@@ -105,6 +106,32 @@ export function identityRoutes(config: AppConfig): PolicyRouter {
       const to = new Date(q.to);
       if (to < from) throw AppError.validation("to must not be before from");
       res.json(await attributeAddress(orgId, q.ip, from, to));
+    }),
+  );
+
+  r.route(
+    "get",
+    "/identity/addresses/:ip",
+    "identity:read",
+    validate("params", z.object({ ip: z.string().ip() })),
+    ah(async (req, res) => {
+      const { orgId } = authOf(req);
+      res.json(await identityHistoryForAddress(orgId, parsed<{ ip: string }>(req, "params").ip));
+    }),
+  );
+
+  r.route(
+    "get",
+    "/identity/lookup",
+    "identity:read",
+    validate("query", z.object({ q: z.string().trim().min(1).max(128) })),
+    ah(async (req, res) => {
+      const { orgId } = authOf(req);
+      const { q } = parsed<{ q: string }>(req, "query");
+      const result = await lookupIdentity(orgId, q);
+      // Searching for a person or device across all records is profiling: who looked up whom is audited.
+      await auditFromRequest(req, "identity.lookup", { type: "identity", id: null }, { query: result.query, records: result.records.length });
+      res.json(result);
     }),
   );
 

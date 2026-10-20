@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AssetLink, AttributionPanel } from "@/components/evidence/Evidence";
+import { AddressIdentityHistory } from "@/features/identity/IdentityContext";
+import { AssetHistory } from "./AssetHistory";
 import { NeutralBadge, SeverityBadge, SourceKindBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/Card";
@@ -299,6 +301,7 @@ export function AssetDetailPage() {
           <CardHeader title="Identity" subtitle="Who or what held this address, from imported records only." />
           <CardBody>
             <AttributionPanel attribution={d.identity} restricted={d.identityRestricted} ip={a.ip} />
+            {!d.identityRestricted && <AddressIdentityHistory ip={a.ip} />}
           </CardBody>
         </Card>
         <Card className="lg:col-span-2">
@@ -385,10 +388,16 @@ export function AssetDetailPage() {
             )}
           </CardBody>
         </Card>
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader title="Analyst notes" subtitle="Kept when the inventory is rebuilt. Audited." />
           <CardBody>
             <Notes key={`${a.notes}|${a.tags.join(",")}`} ip={a.ip} notes={a.notes} tags={a.tags} />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="History" subtitle="What changed in the inventory, when Sentinel noticed it and when it happened in the flows." />
+          <CardBody>
+            <AssetHistory ip={a.ip} />
           </CardBody>
         </Card>
       </div>
