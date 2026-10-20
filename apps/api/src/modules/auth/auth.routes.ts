@@ -17,6 +17,7 @@ import { PolicyRouter } from "../../lib/routes.js";
 import { requireCsrfHeader } from "../../middleware/auth.js";
 import { AuthSession, Membership, Org, User } from "../../models/identity.js";
 import { CONTEXT_MODELS } from "../../models/context.js";
+import { ValidationRun } from "../../models/validation.js";
 import { AuditLog, TENANT_MODELS } from "../../models/tenant.js";
 import { auditFromRequest } from "../audit/audit.service.js";
 import * as auth from "./auth.service.js";
@@ -266,7 +267,7 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
       for (const m of memberships) {
         if ((await Membership.countDocuments({ orgId: m.orgId })) === 1) {
           // Raw driver calls on purpose: the audit log is append-only through the API.
-          for (const model of [...TENANT_MODELS, ...CONTEXT_MODELS]) await model.collection.deleteMany({ orgId: m.orgId });
+          for (const model of [...TENANT_MODELS, ...CONTEXT_MODELS, ValidationRun]) await model.collection.deleteMany({ orgId: m.orgId });
           await Org.deleteOne({ _id: m.orgId });
         } else {
           await AuditLog.create({

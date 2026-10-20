@@ -30,6 +30,7 @@ import { ruleRoutes } from "./modules/rules/rule.routes.js";
 import { RuleService } from "./modules/rules/rule.service.js";
 import { ScoringService } from "./modules/scoring/scoring.service.js";
 import { statsRoutes } from "./modules/stats/stats.routes.js";
+import { validationRoutes } from "./modules/validation/validation.routes.js";
 
 export const API_PREFIX = "/api/v1";
 
@@ -158,6 +159,7 @@ export function createApp(options: AppOptions): SentinelApp {
     ruleRoutes(config, { rules, scheduleDetections }),
     assetRoutes(config, { scheduleAssetRefresh }),
     identityRoutes(config),
+    validationRoutes(config, { ml }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
 
