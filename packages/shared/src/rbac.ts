@@ -26,6 +26,10 @@ export const ACTIONS = [
   "alerts:read",
   "alerts:write",
   "detections:run",
+  "assets:read",
+  "assets:write",
+  "identity:read",
+  "identity:manage",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -55,6 +59,11 @@ export const PERMISSIONS: Record<Action, readonly Role[]> = {
   "alerts:read": ALL,
   "alerts:write": WRITERS,
   "detections:run": WRITERS,
+  "assets:read": ALL,
+  "assets:write": WRITERS,
+  // Usernames and device names are personal data: not shown to Viewers.
+  "identity:read": WRITERS,
+  "identity:manage": ADMINS,
 };
 
 export function can(role: Role, action: Action): boolean {

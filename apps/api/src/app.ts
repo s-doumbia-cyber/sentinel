@@ -12,6 +12,9 @@ import type { Logger } from "./lib/logger.js";
 import { PolicyRouter, type RouteInfo } from "./lib/routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { alertRoutes } from "./modules/alerts/alert.routes.js";
+import { assetRoutes } from "./modules/assets/asset.routes.js";
+import { refreshAssets } from "./modules/assets/asset.service.js";
+import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -54,6 +57,9 @@ export function createApp(options: AppOptions): SentinelApp {
   const scheduleScoring = (orgId: Types.ObjectId) => {
     if (!config.ml.url && !options.ml) return;
     jobs.run(`score:${String(orgId)}`, () => scoring.scorePending(orgId));
+  };
+  const scheduleAssetRefresh = (orgId: Types.ObjectId) => {
+    jobs.run(`assets:${String(orgId)}`, () => refreshAssets(orgId, logger));
   };
   // Rules do not need the ML service; the backfill folds earlier malicious verdicts into alerts.
   const scheduleDetections = (orgId: Types.ObjectId, datasetId?: Types.ObjectId) => {
@@ -133,6 +139,7 @@ export function createApp(options: AppOptions): SentinelApp {
       onImported: (orgId, datasetId) => {
         scheduleScoring(orgId);
         scheduleDetections(orgId, datasetId);
+        scheduleAssetRefresh(orgId);
       },
     }),
     incidentRoutes(config),
@@ -141,6 +148,8 @@ export function createApp(options: AppOptions): SentinelApp {
     modelRoutes(config, { ml, scoring, scheduleScoring }),
     alertRoutes(config),
     ruleRoutes(config, { rules, scheduleDetections }),
+    assetRoutes(config, { scheduleAssetRefresh }),
+    identityRoutes(config),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
 
