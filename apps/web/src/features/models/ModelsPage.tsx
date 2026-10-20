@@ -15,7 +15,7 @@ import type { ClassMetric, Evaluation, ModelDetail } from "@/lib/types";
 /** Per-class table: always with support, small supports flagged (docs/ML_AND_DETECTION.md §12). */
 export function PerClassTable({ rows, caption }: { rows: ClassMetric[]; caption: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto">
       <table className="w-full text-small">
         <caption className="sr-only">{caption}</caption>
         <thead className="text-left text-caption uppercase tracking-[0.04em] text-fg-3">
@@ -48,7 +48,7 @@ export function PerClassTable({ rows, caption }: { rows: ClassMetric[]; caption:
 function ConfusionMatrix({ ev }: { ev: Evaluation }) {
   const max = Math.max(1, ...ev.confusionMatrix.flat());
   return (
-    <div className="overflow-x-auto">
+    <div role="region" aria-label="Confusion matrix" tabIndex={0} className="overflow-x-auto">
       <table className="text-small">
         <caption className="mb-2 text-left text-caption text-fg-3">Rows: dataset label · columns: model verdict</caption>
         <thead>
@@ -269,7 +269,7 @@ function ModelView({ version }: { version: string }) {
           {m.modelCard && (
             <details className="rounded-md border border-subtle">
               <summary className="cursor-pointer px-4 py-2.5 text-small text-fg-2">Full model card (Markdown)</summary>
-              <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap px-4 pb-4 font-mono text-caption text-fg-2">{m.modelCard}</pre>
+              <pre tabIndex={0} aria-label="Model card" className="max-h-[480px] overflow-auto whitespace-pre-wrap px-4 pb-4 font-mono text-caption text-fg-2">{m.modelCard}</pre>
             </details>
           )}
         </CardBody>

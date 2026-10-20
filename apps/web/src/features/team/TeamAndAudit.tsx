@@ -21,7 +21,7 @@ export function TeamPage() {
   return (
     <>
       <PageHeader title="Team" description="Members of this organisation and their roles. Roles are enforced by the API; hiding a control here is cosmetic." />
-      <Card className="overflow-x-auto">
+      <Card aria-label="Team members" tabIndex={0} className="overflow-x-auto">
         {members.isLoading ? (
           <SkeletonRows rows={4} cols={4} />
         ) : members.isError ? (
@@ -140,7 +140,7 @@ export function AuditPage() {
           </Select>
         </label>
       </Card>
-      <Card className="overflow-x-auto">
+      <Card aria-label="Audit entries" tabIndex={0} className="overflow-x-auto">
         {audit.isLoading ? (
           <SkeletonRows />
         ) : audit.isError ? (

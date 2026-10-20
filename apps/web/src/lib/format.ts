@@ -1,5 +1,17 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// tailwind-merge only knows Tailwind's default scale. Without this, custom sizes such as
+// `text-small` were read as colours, so `cn("text-accent-contrast", "text-small")` silently
+// dropped the colour (dark text on filled buttons, found by the e2e accessibility check).
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: ["caption", "small", "body", "h3", "h2", "h1", "kpi"] }],
+      shadow: [{ shadow: ["e1", "e2", "e3"] }],
+    },
+  },
+});
 
 /** Merges class names; later Tailwind utilities win regardless of CSS order (lesson 8). */
 export function cn(...inputs: ClassValue[]): string {

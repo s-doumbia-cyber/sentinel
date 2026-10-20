@@ -117,7 +117,7 @@ export function AssetsPage() {
           <EmptyState title={Object.keys(filters).length ? "No assets match these filters" : "No assets yet"} description="Assets appear once flows are imported. Live discovery arrives with the collector (roadmap Phase 2)." />
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div role="region" aria-label="Assets table" tabIndex={0} className="hidden overflow-x-auto md:block">
               <table className="w-full text-small">
                 <caption className="sr-only">Observed assets, most recently active first</caption>
                 <thead className="text-left text-caption uppercase tracking-[0.04em] text-fg-3">

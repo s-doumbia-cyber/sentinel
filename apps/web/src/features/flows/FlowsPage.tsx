@@ -138,7 +138,7 @@ export function FlowsPage() {
           <EmptyState title={active ? "No flows match these filters" : "No flows yet"} description={active ? "Clear or change the filters." : "Import a dataset from the Datasets page."} />
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div role="region" aria-label="Flows table" tabIndex={0} className="hidden overflow-x-auto md:block">
               <table className="w-full text-small">
                 <caption className="sr-only">Flows, newest first. Press Enter on a row to open its details; J and K move between rows.</caption>
                 <thead className="sticky top-0 bg-surface-1 text-left text-caption uppercase tracking-[0.04em] text-fg-3">

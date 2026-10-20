@@ -410,7 +410,7 @@ export function AlertsPage() {
           />
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div role="region" aria-label="Alerts table" tabIndex={0} className="hidden overflow-x-auto md:block">
               <table className="w-full text-small">
                 <caption className="sr-only">Alerts, most recent first. Press Enter on a row to open it; J and K move between rows.</caption>
                 <thead className="text-left text-caption uppercase tracking-[0.04em] text-fg-3">

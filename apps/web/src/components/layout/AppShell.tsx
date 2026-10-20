@@ -89,8 +89,10 @@ function OrgSwitcher() {
   if (!activeOrg) return null;
   return (
     <Menu.Root>
-      <Menu.Trigger className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border bg-surface-1 px-3 text-small text-fg-1 hover:border-strong" aria-label="Switch organisation">
+      <Menu.Trigger className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border bg-surface-1 px-3 text-small text-fg-1 hover:border-strong">
         <Building2 aria-hidden className="h-4 w-4 text-fg-3" />
+        {/* The accessible name must contain the visible text (WCAG 2.5.3), so the purpose is added, not substituted. */}
+        <span className="sr-only">Switch organisation, current:</span>
         <span className="truncate">{activeOrg.name}</span>
         <span className="rounded-sm bg-surface-3 px-1.5 text-caption text-fg-2">{activeOrg.role}</span>
         <ChevronsUpDown aria-hidden className="h-3.5 w-3.5 text-fg-3" />

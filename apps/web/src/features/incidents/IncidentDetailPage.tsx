@@ -305,7 +305,7 @@ function Response({ id }: { id: string }) {
               </div>
               <p className="text-caption text-fg-3">
                 {k.references.map((r) => (
-                  <a key={r.url} href={r.url} target="_blank" rel="noreferrer noopener" className="mr-3 text-accent-fg hover:underline">
+                  <a key={r.url} href={r.url} target="_blank" rel="noreferrer noopener" className="mr-3 text-accent-fg underline underline-offset-2 hover:decoration-2">
                     {r.label}
                   </a>
                 ))}
@@ -362,7 +362,7 @@ function Response({ id }: { id: string }) {
                     </p>
                   ))}
                   <p className="text-caption text-fg-3">Simulation only: review and apply it yourself through your change process if appropriate.</p>
-                  <pre className="overflow-x-auto rounded-md border bg-surface-2 p-3 font-mono text-caption text-fg-1">{sim.content}</pre>
+                  <pre tabIndex={0} aria-label="Generated blocklist (not applied)" className="overflow-x-auto rounded-md border bg-surface-2 p-3 font-mono text-caption text-fg-1">{sim.content}</pre>
                 </div>
               )}
             </CardBody>

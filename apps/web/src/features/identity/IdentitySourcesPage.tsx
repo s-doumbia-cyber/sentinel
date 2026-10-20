@@ -73,7 +73,7 @@ export function IdentitySourcesPage() {
           <CardHeader title="Import a CSV export" subtitle="Owners and Admins only. Usernames and device names are personal data: only Analysts and above can read them." />
           <CardBody className="space-y-3 text-small">
             <p className="text-fg-2">Columns: ip, start, end (optional), source ({Object.keys(IDENTITY_SOURCE_LABEL).join(", ")}), and at least one of username, hostname, mac. Times in ISO-8601.</p>
-            <pre className="overflow-x-auto rounded-md border bg-surface-2 p-3 font-mono text-caption text-fg-1">{TEMPLATE}</pre>
+            <pre tabIndex={0} aria-label="CSV template" className="overflow-x-auto rounded-md border bg-surface-2 p-3 font-mono text-caption text-fg-1">{TEMPLATE}</pre>
             {can("identity:manage") ? (
               <>
                 <div className="flex flex-wrap items-center gap-3">

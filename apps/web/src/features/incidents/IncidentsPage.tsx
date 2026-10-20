@@ -122,7 +122,7 @@ function CreateIncident({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
 function Board({ items, onOpen }: { items: Incident[]; onOpen: (id: string) => void }) {
   return (
-    <div className="grid gap-4 overflow-x-auto md:grid-cols-5">
+    <div role="region" aria-label="Incident board" tabIndex={0} className="grid gap-4 overflow-x-auto md:grid-cols-5">
       {INCIDENT_STATUSES.map((status) => {
         const col = items.filter((i) => i.status === status);
         return (
@@ -204,7 +204,7 @@ export function IncidentsPage() {
       ) : view === "board" ? (
         <Board items={items} onOpen={(id) => navigate(`/incidents/${id}`)} />
       ) : (
-        <Card className="overflow-x-auto">
+        <Card aria-label="Incidents table" tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-small">
             <caption className="sr-only">Incidents, most recently updated first</caption>
             <thead className="text-left text-caption uppercase tracking-[0.04em] text-fg-3">
