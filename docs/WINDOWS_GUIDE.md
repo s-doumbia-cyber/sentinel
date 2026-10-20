@@ -1,7 +1,10 @@
 # Running Sentinel on Windows (PowerShell)
 
-Every command below was run on Windows 11 with PowerShell on 2026-10-20, against a throwaway
-MongoDB database. Where a step could not be re-run that day, the guide says so.
+Every command below was run on Windows 11 with PowerShell on 2026-10-20 against an isolated
+MongoDB database (a separate `mongod` on port 27018), never against existing data: install (§2),
+configuration (§3, with the `.env` built exactly as described), start (§4), the health check, the
+demo seed (§5, dry run then `--yes`), sign-in with a generated account and registration of a new
+account. Where a step could not be re-run that day, the guide says so.
 
 ## 1. Prerequisites
 
@@ -24,6 +27,9 @@ npm.cmd install
 npm.cmd run ml:install          # creates services/ml/.venv and installs the ML service
 npm.cmd run ml:train:sample     # trains the small benchmark model into services/ml/artifacts/
 ```
+
+Each `ml:train:sample` run writes a new, timestamped model folder; older ones stay until you delete
+them (the folder is git-ignored).
 
 `ml:train:sample` trains a toy model on 990 rows of one CICIDS2017 capture (BENIGN vs DDoS). It is
 there to exercise the pipeline, not to detect attacks on your network (see the README limitations).
@@ -93,10 +99,16 @@ still raise alerts.
   npm.cmd run seed:demo -- --yes        # creates it and prints the three accounts once
   ```
 
-  The accounts are `owner@sentinel-demo.test` (Owner), `analyst@sentinel-demo.test` (Analyst) and
-  `viewer@sentinel-demo.test` (Viewer). Their passwords are random and appear only in that output:
-  copy them then. They are stored only as argon2id hashes and cannot be recovered. Running the
-  command again changes nothing. To seed another database: `npm.cmd run seed:demo -- --mongo-uri
+  The dry run prints the target database (`Target database: mongodb://host:port/name`, without
+  credentials): check it before adding `--yes`.
+
+  **Getting the credentials.** The `--yes` run prints a block titled *Sign-in details* with three
+  lines: role, email, password. That output is the only place the passwords ever appear: copy them
+  into your password manager right away. The accounts are `owner@sentinel-demo.test` (Owner),
+  `analyst@sentinel-demo.test` (Analyst) and `viewer@sentinel-demo.test` (Viewer); the passwords
+  are random and stored only as argon2id hashes, so they cannot be recovered or reset by the script.
+  Running the command again changes nothing (it reports that the demo exists). If you lose the
+  passwords, point `MONGO_URI` (or `--mongo-uri`) at a new database name and run the seed there. To seed another database: `npm.cmd run seed:demo -- --mongo-uri
   mongodb://127.0.0.1:27017/sentinel_demo --yes`; the API must use the same `MONGO_URI` to show it.
 
   The demo contains 585 synthetic flows tagged DEMO (office traffic, a port scan, then an SSH brute
