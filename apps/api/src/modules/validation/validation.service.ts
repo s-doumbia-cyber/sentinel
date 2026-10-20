@@ -20,10 +20,12 @@ export interface ErrorSample {
   topFeatures?: { name: string; contribution: number; value: number | null }[];
 }
 
-type DatasetLite = { _id: Types.ObjectId; name: string; fileSha256?: string | null; featureSchema: string };
+type DatasetLite = { _id: Types.ObjectId; name: string; fileSha256?: string | null; featureSchema: string; sourceKind?: string };
+
+const DEMO_NOTE = "This dataset is tagged DEMO (synthetic data written to exercise the product): the score says nothing about real-world detection.";
 
 async function loadDataset(orgId: Types.ObjectId, datasetId: string): Promise<DatasetLite> {
-  const ds = await Dataset.findOne({ orgId, _id: datasetId, status: "Processed" }).select("name fileSha256 featureSchema").lean<DatasetLite>();
+  const ds = await Dataset.findOne({ orgId, _id: datasetId, status: "Processed" }).select("name fileSha256 featureSchema sourceKind").lean<DatasetLite>();
   if (!ds) throw AppError.notFound("Processed dataset");
   return ds;
 }
@@ -96,6 +98,7 @@ export async function validateModel(orgId: Types.ObjectId, userId: Types.ObjectI
       : "This dataset file was not among the model's training files (checked by SHA-256). Captures from the same network or day can still be correlated.",
     "Benchmark result on labelled data; it is not a guarantee of performance on another network.",
   ];
+  if (ds.sourceKind === "DEMO") notes.unshift(DEMO_NOTE);
   if (unlabelled) notes.push(`${unlabelled} flows without a usable label were excluded.`);
   if (unknownOutput) notes.push(`${unknownOutput} flows got no usable model output and were excluded.`);
   if (scanned >= MAX_VALIDATION_FLOWS) notes.push(`Stopped at the ${MAX_VALIDATION_FLOWS.toLocaleString("en")} flow limit.`);
@@ -186,6 +189,7 @@ export async function validateRule(orgId: Types.ObjectId, userId: Types.ObjectId
     `"Other" groups every label except ${positive}, including attacks this rule is not meant to catch.`,
     "Benchmark result on labelled data; it is not a guarantee of performance on another network.",
   ];
+  if (ds.sourceKind === "DEMO") notes.unshift(DEMO_NOTE);
   if (unlabelled) notes.push(`${unlabelled} flows without a usable label were excluded.`);
   const run = await ValidationRun.create({
     orgId,

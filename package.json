@@ -26,6 +26,7 @@
     "ml:serve": "node scripts/ml.mjs serve",
     "ml:test": "node scripts/ml.mjs test",
     "smoke": "node scripts/smoke.mjs",
+    "demo:data": "node scripts/demo-data.mjs",
     "import:csv": "npm run import:csv -w @sentinel/api --",
     "migrate:legacy": "npm run migrate:legacy -w @sentinel/api --"
   },

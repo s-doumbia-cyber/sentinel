@@ -182,7 +182,7 @@ export function ValidationPage() {
           <EmptyState title="No validation run yet" description="Import a labelled dataset, then test a rule or a model on it." />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           <Card className="h-fit">
             <CardHeader title="Runs" />
             <ul className="p-2">

@@ -15,6 +15,19 @@ import { api, errorMessage } from "@/lib/api";
 import { formatCount, formatDateTime, formatExact, formatWhen, utcTitle } from "@/lib/format";
 import { useAsset, useAssets, useOrgMutation, type AssetFilters } from "@/lib/queries";
 import type { Asset } from "@/lib/types";
+import { MIN_SERVICE_FLOWS } from "@sentinel/shared";
+
+function ServiceList({ services }: { services: Asset["services"] }) {
+  return (
+    <ul className="mt-1 space-y-1 font-mono text-caption text-fg-2">
+      {services.map((s) => (
+        <li key={`${s.protocol}-${s.port}`}>
+          {s.protocol}/{s.port} · {formatExact(s.flows)} {s.flows === 1 ? "flow" : "flows"} · {formatDateTime(s.firstSeen)} → {formatDateTime(s.lastSeen)}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** The device type is always shown as an estimate with its basis (axis 3). */
 function Estimate({ asset, compact = false }: { asset: Pick<Asset, "deviceEstimate">; compact?: boolean }) {
@@ -245,7 +258,7 @@ export function AssetDetailPage() {
           </span>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
           <CardHeader title="What Sentinel observed" subtitle="From stored flows only." />
           <CardBody className="space-y-4 text-small">
@@ -259,14 +272,23 @@ export function AssetDetailPage() {
             />
             <div>
               <p className="mb-1 font-medium text-fg-1">Services accepted</p>
+              {a.distinctServices > a.services.length && (
+                <p className="text-caption text-fg-3">
+                  The {formatExact(a.services.length)} busiest of {formatExact(a.distinctServices)} ports that accepted flows.
+                </p>
+              )}
               {a.services.length ? (
-                <ul className="space-y-1 font-mono text-caption text-fg-2">
-                  {a.services.map((s) => (
-                    <li key={`${s.protocol}-${s.port}`}>
-                      {s.protocol}/{s.port} · {formatExact(s.flows)} flows · {formatDateTime(s.firstSeen)} → {formatDateTime(s.lastSeen)}
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ServiceList services={a.services.filter((s) => s.flows >= MIN_SERVICE_FLOWS)} />
+                  {a.services.some((s) => s.flows < MIN_SERVICE_FLOWS) && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-caption text-fg-2">
+                        {formatExact(a.services.filter((s) => s.flows < MIN_SERVICE_FLOWS).length)} more port(s) with fewer than {MIN_SERVICE_FLOWS} flows (often a scan, not a service)
+                      </summary>
+                      <ServiceList services={a.services.filter((s) => s.flows < MIN_SERVICE_FLOWS)} />
+                    </details>
+                  )}
+                </>
               ) : (
                 <p className="text-fg-3">None observed.</p>
               )}

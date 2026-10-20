@@ -113,7 +113,7 @@ function Header({ incident }: { incident: Incident }) {
 
 function Overview({ incident }: { incident: Incident }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
       <Card>
         <CardHeader title="Summary" />
         <CardBody className="space-y-3 text-small">
@@ -154,9 +154,9 @@ function AttackTimeline({ id }: { id: string }) {
   if (t.isError) return <ErrorState error={t.error} onRetry={() => void t.refetch()} />;
   if (!t.data?.attack.steps.length) return <EmptyState title="No linked alerts yet" description="The attack timeline is built from the alerts linked to this incident." />;
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <Card>
-        <CardHeader title="What was observed" subtitle="Alerts in event time (when the traffic happened), UTC." />
+        <CardHeader title="What was observed" subtitle="Alerts in event time (when the traffic happened), in your local time; hover a time for UTC." />
         <CardBody>
           <ol className="relative space-y-5 border-l border-[color:var(--border)] pl-5">
             {t.data.attack.steps.map((s) => (
@@ -189,7 +189,7 @@ function AttackTimeline({ id }: { id: string }) {
                   <p className="flex items-start gap-2 font-medium text-fg-1">
                     <Lightbulb aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-fg-2" /> {h.statement}
                   </p>
-                  {h.basis.length > 0 && <p className="mt-2 text-caption text-fg-2">Basis: {h.basis.join("; ")}.</p>}
+                  {h.basis.length > 0 && <p className="mt-2 text-caption text-fg-2">Basis: {h.basis.map((b) => b.replace(/\.$/, "")).join(". ")}.</p>}
                   {h.limits.length > 0 && (
                     <ul className="mt-1 list-disc pl-5 text-caption text-fg-3">
                       {h.limits.map((l) => (
@@ -279,7 +279,7 @@ function Response({ id }: { id: string }) {
       <p role="note" className="flex items-start gap-2 rounded-md border bg-surface-2 px-4 py-3 text-small text-fg-1">
         <ShieldOff aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-fg-2" /> {data.notice}
       </p>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         {data.entries.map((k) => (
           <Card key={k.type}>
             <CardHeader title={`${k.type}: recommendations`} subtitle={k.summary} />
@@ -316,7 +316,7 @@ function Response({ id }: { id: string }) {
         ))}
       </div>
       {writable && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           <Card>
             <CardHeader title="Blocklist simulation" subtitle="Generates firewall rules for you to review. Nothing is applied." />
             <CardBody className="space-y-3 text-small">
@@ -421,7 +421,7 @@ export function IncidentDetailPage() {
     <>
       <Header incident={incident.data} />
       <Tabs.Root value={tab} onValueChange={(v) => setParams(v === "overview" ? {} : { tab: v }, { replace: true })}>
-        <Tabs.List aria-label="Incident sections" className="mb-6 flex gap-1 overflow-x-auto border-b border-subtle">
+        <Tabs.List aria-label="Incident sections" className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-subtle">
           {TABS.map((t) => (
             <Tabs.Trigger
               key={t}

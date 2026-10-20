@@ -33,6 +33,7 @@ export function toAssetResponse(a: LeanAsset, alertCount?: number) {
     flowsAsSource: a.flowsAsSource,
     flowsAsDestination: a.flowsAsDestination,
     distinctPeers: a.distinctPeers,
+    distinctServices: a.distinctServices ?? a.services.length,
     services: a.services,
     sourceKinds: a.sourceKinds,
     // Computed on read so heuristic changes apply to every asset at once; always an estimate.

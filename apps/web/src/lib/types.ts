@@ -402,6 +402,7 @@ export interface Asset {
   flowsAsSource: number;
   flowsAsDestination: number;
   distinctPeers: number;
+  distinctServices: number;
   services: { port: number; protocol: string; flows: number; firstSeen: string; lastSeen: string }[];
   sourceKinds: SourceKind[];
   deviceEstimate: DeviceEstimate | null;

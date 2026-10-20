@@ -83,7 +83,7 @@ export function IncidentReportPage() {
                   {r.attack.hypotheses.map((h, i) => (
                     <li key={i}>
                       <p className="font-medium text-fg-1">{h.statement}</p>
-                      <p className="text-fg-2">Basis: {h.basis.join("; ") || "—"}.</p>
+                      <p className="text-fg-2">Basis: {h.basis.map((b) => b.replace(/\.$/, "")).join(". ") || "—"}.</p>
                       {h.limits.length > 0 && <p className="text-fg-3">Limits: {h.limits.join(" ")}</p>}
                     </li>
                   ))}

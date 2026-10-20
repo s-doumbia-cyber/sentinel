@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { AuditLog, Flow } from "../src/models/tenant.js";
+import { AuditLog, Dataset, Flow } from "../src/models/tenant.js";
 import { ValidationRun } from "../src/models/validation.js";
 import { API, FakeMl, addMember, buildApp, oid, registerUser, writeCsv, type CsvRow } from "./helpers.js";
 
@@ -81,5 +81,15 @@ describe("rule validation runs", () => {
     expect(run.falseNegatives).toHaveLength(10);
     expect(run.falseNegatives[0]).toMatchObject({ truth: "PortScan", predicted: "not flagged" });
     expect(run.notes[0]).toMatch(/approximation/);
+  });
+
+  it("warns that a score on DEMO data says nothing about real-world detection", async () => {
+    const scan: CsvRow[] = Array.from({ length: 110 }, (_, i) => ({ label: "PortScan", srcIp: "10.9.9.9", timestamp: "7/7/2017 3:40", raw: { "Destination Port": String(1000 + i), "Total Fwd Packets": "1", "Total Backward Packets": "1" } }));
+    const { u, auth, datasetId } = await setup(scan);
+    // Uploads are IMPORTED; the CLI's --demo flag sets DEMO. Simulate that here.
+    await Dataset.updateOne({ orgId: u.orgId, _id: datasetId }, { $set: { sourceKind: "DEMO" } });
+    const rules = (await request(sa.app).get(`${API}/rules`).set(auth)).body.items as Array<{ id: string; key: string }>;
+    const run = (await request(sa.app).post(`${API}/validation/runs`).set(auth).send({ kind: "rule", ruleId: rules.find((r) => r.key === "R-PORTSCAN-01")?.id, datasetId })).body;
+    expect(run.notes[0]).toMatch(/tagged DEMO/);
   });
 });

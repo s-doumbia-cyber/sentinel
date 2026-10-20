@@ -49,7 +49,7 @@ export function buildAttackTimeline(alerts: TimelineAlert[]): { steps: AttackSte
       until: a.lastSeen.toISOString(),
       stage: STAGE_BY_CLASS[a.type] ?? null,
       mitre: m ? (m.techniqueId ? `${m.techniqueId} ${m.techniqueName}` : m.tactics.map((t) => t.name).join(", ")) : null,
-      fact: `Sentinel raised a ${a.severity} ${a.type} alert for ${a.srcIp ?? "several sources"} → ${target} (${a.count} pieces of evidence).`,
+      fact: `Sentinel raised a ${a.severity} ${a.type} alert for ${a.srcIp ?? "several sources"} → ${target} (${a.count} ${a.count === 1 ? "piece" : "pieces"} of evidence).`,
       alertId: a.id,
       severity: a.severity,
       detectedBy: a.sources,

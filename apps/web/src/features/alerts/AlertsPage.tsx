@@ -105,7 +105,7 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
             <DetectedBy alert={a} />
           </div>
           <p className="text-body text-fg-1">
-            <Endpoints alert={a} /> · <span className="tnum">{formatExact(a.count)}</span> pieces of evidence between{" "}
+            <Endpoints alert={a} /> · <span className="tnum">{formatExact(a.count)}</span> {a.count === 1 ? "piece" : "pieces"} of evidence between{" "}
             <span title={utcTitle(a.firstSeen)}>{formatDateTime(a.firstSeen)}</span> and <span title={utcTitle(a.lastSeen)}>{formatDateTime(a.lastSeen)}</span>.
           </p>
 

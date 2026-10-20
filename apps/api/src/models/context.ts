@@ -18,6 +18,8 @@ const assetSchema = new Schema(
     /** Services this address accepted in observed flows (as destination), busiest first. */
     services: [{ _id: false, port: Number, protocol: String, flows: Number, firstSeen: Date, lastSeen: Date }],
     distinctPeers: { type: Number, default: 0 },
+    // Accepted ports observed; `services` keeps only the busiest ones.
+    distinctServices: { type: Number, default: 0 },
     sourceKinds: { type: [String], default: [] },
     /** Analyst-provided context. Kept across refreshes. */
     notes: { type: String, default: "", maxlength: 5000 },

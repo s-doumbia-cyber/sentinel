@@ -37,7 +37,7 @@ describe("asset inventory", () => {
     expect(list.status).toBe(200);
     expect(list.body.items.map((a: { ip: string }) => a.ip).sort()).toEqual(["10.0.0.21", "10.0.0.22", "10.0.0.80", "8.8.8.8"]);
     const server = list.body.items.find((a: { ip: string }) => a.ip === "10.0.0.80");
-    expect(server).toMatchObject({ scope: "internal", flowsAsDestination: 7, flowsAsSource: 0, distinctPeers: 2 });
+    expect(server).toMatchObject({ scope: "internal", flowsAsDestination: 7, flowsAsSource: 0, distinctPeers: 2, distinctServices: 1 });
     expect(server.services[0]).toMatchObject({ port: 80, protocol: "TCP", flows: 7 });
     expect(server.deviceEstimate).toMatchObject({ label: "Web server", confidence: "low", source: "port-heuristic" });
     const client = list.body.items.find((a: { ip: string }) => a.ip === "10.0.0.21");

@@ -63,12 +63,12 @@ export async function refreshAssets(orgId: Types.ObjectId, logger?: Logger): Pro
     ]).allowDiskUse(true),
   ]);
 
-  type Acc = { first: Date; last: Date; src: number; dst: number; kinds: Set<string>; peers: Set<string>; services: ServiceAgg[] };
+  type Acc = { first: Date; last: Date; src: number; dst: number; kinds: Set<string>; peers: Set<string>; services: ServiceAgg[]; serviceCount: number };
   const byIp = new Map<string, Acc>();
   const acc = (ip: string, first: Date, last: Date): Acc => {
     let a = byIp.get(ip);
     if (!a) {
-      a = { first, last, src: 0, dst: 0, kinds: new Set(), peers: new Set(), services: [] };
+      a = { first, last, src: 0, dst: 0, kinds: new Set(), peers: new Set(), services: [], serviceCount: 0 };
       byIp.set(ip, a);
     }
     if (first < a.first) a.first = first;
@@ -89,7 +89,9 @@ export async function refreshAssets(orgId: Types.ObjectId, logger?: Logger): Pro
   }
   for (const s of services) {
     const a = byIp.get(s._id.ip);
-    if (a && a.services.length < MAX_SERVICES) a.services.push(s);
+    if (!a) continue;
+    a.serviceCount++;
+    if (a.services.length < MAX_SERVICES) a.services.push(s);
   }
 
   const ops: AnyBulkWriteOperation[] = [...byIp.entries()].map(([ip, a]) => ({
@@ -103,6 +105,7 @@ export async function refreshAssets(orgId: Types.ObjectId, logger?: Logger): Pro
           flowsAsSource: a.src,
           flowsAsDestination: a.dst,
           distinctPeers: a.peers.size,
+          distinctServices: a.serviceCount,
           sourceKinds: [...a.kinds].sort(),
           services: a.services.map((s) => ({ port: s._id.port, protocol: s._id.protocol, flows: s.flows, firstSeen: s.first, lastSeen: s.last })),
           active: true,
@@ -116,7 +119,7 @@ export async function refreshAssets(orgId: Types.ObjectId, logger?: Logger): Pro
   for (let i = 0; i < ops.length; i += 1000) await Asset.bulkWrite(ops.slice(i, i + 1000), { ordered: false });
   const stale = await Asset.updateMany(
     { orgId, refreshedAt: { $lt: started } },
-    { $set: { active: false, flowsAsSource: 0, flowsAsDestination: 0, services: [], distinctPeers: 0, refreshedAt: started } },
+    { $set: { active: false, flowsAsSource: 0, flowsAsDestination: 0, services: [], distinctServices: 0, distinctPeers: 0, refreshedAt: started } },
   );
   logger?.info({ orgId: String(orgId), assets: ops.length, inactive: stale.modifiedCount }, "Asset inventory refreshed");
   return { assets: ops.length, inactive: stale.modifiedCount };

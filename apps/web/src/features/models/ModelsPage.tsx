@@ -306,7 +306,7 @@ export function ModelsPage() {
           <EmptyState title="No trained models" description="Train one with: npm run ml:train:sample (writes services/ml/artifacts/). It is never activated automatically." />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <Card className="h-fit">
             <CardHeader title="Versions" as="h2" />
             <ul className="p-2">

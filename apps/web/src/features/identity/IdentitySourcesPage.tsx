@@ -56,7 +56,7 @@ export function IdentitySourcesPage() {
         title="Identity sources"
         description="Records from your own systems that say who or what held an address and when. Sentinel never infers identity from traffic alone."
       />
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
           <CardHeader title="Why this matters" />
           <CardBody className="space-y-2 text-small text-fg-2">
