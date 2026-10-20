@@ -26,10 +26,10 @@ where it came from, and every model ships with per-class results and its known l
 | Models | Registry of trained versions with model card, macro-F1, per-class precision/recall/F1/support, holdout on unseen source IPs, library-version checks, per-org activation (Owner/Admin). |
 | Evaluation | Live comparison of verdicts with dataset labels in your org (confusion matrix, macro-F1), with a warning when the data was also used for training. |
 | Evidence | Each alert separates what was **observed** (stored data and its file), what was **inferred** (model, rule or heuristic, with its basis) and what is **unknown**, and shows its provenance (dataset SHA-256, model and rule versions) and change history. |
-| Incidents | Alerts from the same source within the org's correlation window (default 15 min) are grouped into one incident, labelled a hypothesis; open incidents from one or several alerts or from scratch. Incident page: attack timeline in event time (facts vs hypotheses, MITRE marked "suggested"), append-only investigation log (who did what, when), status / priority / assignee, printable report. |
+| Incidents | Alerts from the same source within the org's correlation window (default 15 min) are grouped into one incident, labelled a hypothesis; open incidents from one or several alerts or from scratch. Incident page: attack timeline in event time (facts vs hypotheses, MITRE marked "suggested"), append-only investigation log (who did what, when), status / priority / assignee, a *Trace* tab (import → detection → triage → investigation → response → report, with who and when) and a printable report that includes it. |
 | Response | Per-class checks and containment ideas, blocklist **simulations** (iptables, nftables, CSV) that are never applied, and actions *reported* by analysts. Sentinel cannot block, isolate or change a firewall, and says so. |
-| Assets | Inventory of addresses seen in flows: services accepted, peers, activity over time, alerts, notes. Device type is a low-confidence estimate from ports, labelled as such. |
-| Identity | Import VPN / DHCP / auth / EDR / directory records (CSV). Attribution shows each matching record with its source, validity window and graded confidence, flags ambiguity, and says "unknown" (and what would help) when nothing matches. An IP is never presented as proof of identity. |
+| Assets | Inventory of addresses seen in flows: services accepted, peers, activity over time, alerts, notes, and a history of changes (new or vanished services, estimate changes, inactive / seen again, note edits) that ignores scan noise. Device type is a low-confidence estimate from ports, labelled as such, or "unknown" with what would help. |
+| Identity | Import VPN / DHCP / auth / EDR / directory records (CSV). Attribution shows each matching record with its source, validity window and graded confidence, flags ambiguity, and says "unknown" (and what would help) when nothing matches. An IP is never presented as proof of identity. Look up an account, hostname or MAC to see the addresses it held, when, and the alerts on those addresses in those windows (each lookup is audited). |
 | Validation | Test a model version or a rule version on a labelled dataset: per-class precision / recall / F1 / support, false-positive and false-negative samples (with SHAP for models), dataset hash, training-overlap check, author and time. Results are stored and immutable. |
 | Investigation | Flow explorer with URL filters; asset links from flows and alerts. |
 | Organisations | Multi-tenant orgs, roles Owner / Admin / Analyst / Viewer enforced server-side, append-only audit log, sessions, data export, account deletion. |
@@ -48,6 +48,9 @@ severity and MITRE maps, feature schemas, RBAC matrix, zod contracts), `services
 `services/collector` (placeholder). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Quick start on Windows (PowerShell)
+
+The step-by-step, verified version (configuration table, accounts, tour, tests, troubleshooting) is
+[docs/WINDOWS_GUIDE.md](docs/WINDOWS_GUIDE.md).
 
 Prerequisites: Node.js 20+, Python 3.11+, MongoDB (local install or Docker). If PowerShell blocks
 `npm.ps1`, use `npm.cmd` as below.
@@ -68,21 +71,24 @@ npm.cmd run dev                 # API on http://localhost:4000 and web on http:/
 ```
 
 Open http://localhost:5173 (use `localhost`, not `127.0.0.1`: the CSRF origin check uses the
-allow-list in `CORS_ORIGINS`). Create a workspace, import `data/samples/cicids2017-friday-ddos-sample.csv`
-on the Datasets page, activate the model on the Models page, and the flows get scored.
+allow-list in `CORS_ORIGINS`). **There is no default account**: create one at `/register` (you become
+the Owner of a new, empty workspace), import `data/samples/cicids2017-friday-ddos-sample.csv` on the
+Datasets page, activate the model on the Models page, and the flows get scored.
 
-### Demo scenario (synthetic, tagged DEMO)
+### Demo workspace (synthetic, tagged DEMO)
 
 ```powershell
-npm.cmd run demo:data
-npm.cmd run import:csv -- --org <your-demo-org-slug> --demo "data/demo/demo-scenario-flows.csv"
+npm.cmd run seed:demo                 # dry run: prints the target database and what it would create
+npm.cmd run seed:demo -- --yes        # creates it and prints three accounts with random passwords, once
 ```
 
-Then, in the UI: **Alerts → Run detections**, **Identity sources → import `data/demo/demo-identity.csv`**,
-and follow the path *Alerts → SSH alert → Incident → Attack timeline → Response → Report*, then
-*Assets → 10.0.0.20* and *Validation → R-BRUTEFORCE-SSH-01 on the demo dataset*. The scenario
-(benign office traffic, a port scan, then an SSH brute force from `10.0.0.66`) is synthetic and
-explained in [data/demo/README.md](data/demo/README.md). Use an organisation created for the demo.
+It adds one organisation (`sentinel-demo`) with an Owner, an Analyst and a Viewer
+(`owner@` / `analyst@` / `viewer@sentinel-demo.test`), 585 synthetic flows tagged DEMO (office
+traffic, a port scan, then an SSH brute force from `10.0.0.66`), the rule alerts, the correlated
+incident, assets and identity records. It never modifies existing data and refuses to run twice.
+Passwords are shown only in that output. Follow the tour in
+[docs/WINDOWS_GUIDE.md](docs/WINDOWS_GUIDE.md#6-a-five-minute-tour-demo-workspace-signed-in-as-the-analyst);
+the data is explained in [data/demo/README.md](data/demo/README.md).
 
 Check the whole chain from the command line (creates and then deletes a throwaway account; use a
 development database):
@@ -127,24 +133,26 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 | `npm run import:csv -- --org <slug> "<file.csv>"` | import a large CSV from disk (`--demo` tags it DEMO) |
 | `npm run migrate:legacy [-- --apply]` | migrate data from the old backend |
 | `npm run smoke [-- http://host:port]` | end-to-end check against a running stack |
-| `npm run demo:data` | write the synthetic DEMO scenario files to `data/demo/` (no database access) |
+| `npm run demo:data` | regenerate the synthetic DEMO scenario files in `data/demo/` (no database access) |
+| `npm run seed:demo [-- --yes] [-- --mongo-uri <uri>]` | create the isolated demo workspace (dry run without `--yes`) |
 | `npm run e2e:install` then `npm run test:e2e` | Playwright end-to-end and accessibility suite (own throwaway stack) |
 
 ## Testing
 
 - `packages/shared`: 97 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
   schema drift, rules DSL, attribution grading, device estimates, knowledge base, blocklist syntax).
-- `apps/api`: 102 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
-  in-memory MongoDB): auth (rotation, reuse detection, logout-all, CSRF, rate limit, legacy hash
-  upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import, scoring, stats,
-  evaluation, migration, alerts and rules, correlation, incident events, response simulations,
-  reports, assets, identity attribution, validation runs.
+- `apps/api`: 108 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
+  in-memory MongoDB): configuration, auth (rotation, reuse detection, logout-all, CSRF, rate limit,
+  legacy hash upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import,
+  scoring, stats, evaluation, migration, alerts and rules, correlation, incident events and trace,
+  response simulations, reports, assets and their history, identity attribution and lookup,
+  validation runs, demo seed.
 - `apps/web`: API client, class merging, rule descriptions, evidence and attribution panels (Testing Library).
 - `e2e` (Playwright, Chromium): the analyst journey on the DEMO scenario (alert → observed / inferred /
   unknown → DHCP attribution → triage → correlated incident → attack timeline → blocklist simulation
   → report → investigation log), tokens absent from web storage, no horizontal scroll at 375 px,
-  every page reachable on mobile, and axe (WCAG 2.1 A/AA) with no serious violation on 18 views in the
-  light theme and 10 in the dark theme. The suite starts its own API on an in-memory MongoDB (ports
+  every page reachable on mobile, the incident trace, account lookup and asset history, and axe
+  (WCAG 2.1 A/AA) with no serious violation on 21 views in the light theme and 10 in the dark theme. The suite starts its own API on an in-memory MongoDB (ports
   4310 / 5310) and never loads `apps/api/.env`. First run: `npm.cmd run e2e:install` downloads Chromium
   (about 720 MB on disk under `%LOCALAPPDATA%\ms-playwright`).
 - `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version

@@ -43,6 +43,9 @@ test("the sign-in page has no serious accessibility violations", async ({ page }
   await page.goto("/login");
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   await expectNoSeriousViolations(page, "/login");
+  await page.goto("/register");
+  await expect(page.getByRole("button", { name: "Create workspace" })).toBeVisible();
+  await expectNoSeriousViolations(page, "/register");
 });
 
 test("key pages have no serious accessibility violations", async ({ page }) => {

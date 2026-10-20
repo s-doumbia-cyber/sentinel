@@ -26,6 +26,10 @@ verdicts on these flows say little about model quality. Labels (`BENIGN`, `PortS
 
 ## Using it (development database only)
 
+The simplest way is `npm run seed:demo -- --yes`, which creates a separate demo organisation with
+three accounts and loads both files (see the main README). The manual way below imports into an
+organisation you already have.
+
 ```powershell
 npm run demo:data
 npm run import:csv -- --org <your-org-slug> --demo "data/demo/demo-scenario-flows.csv"

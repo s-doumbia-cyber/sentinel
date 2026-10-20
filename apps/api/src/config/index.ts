@@ -80,7 +80,10 @@ export type AppConfig = z.output<typeof envSchema>;
  * Never include secret values in the message.
  */
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = envSchema.safeParse(source);
+  // `KEY=` in .env (as in .env.example) means "not set": without this, an empty optional
+  // value such as ML_SERVICE_TOKEN failed its length check and the documented setup did not start.
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== undefined && v.trim() !== ""));
+  const parsed = envSchema.safeParse(present);
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  - ${i.path.join(".") || "env"}: ${i.message}`);
     throw new Error(`Invalid configuration:\n${lines.join("\n")}`);

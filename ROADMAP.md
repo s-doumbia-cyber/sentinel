@@ -116,7 +116,7 @@
 
 ## Phase 6 — Expo and pitch package
 
-- [ ] **6.1 `docker compose --profile demo up`** seeds org, role users, honest replay source, trained sample model; everything tagged DEMO/REPLAY.
+- [ ] **6.1 `docker compose --profile demo up`** seeds org, role users, honest replay source, trained sample model; everything tagged DEMO/REPLAY. ⏳ *2026-10-20: `npm run seed:demo` creates the org, Owner / Analyst / Viewer accounts and the synthetic DEMO scenario (tested, run on a throwaway database). No Compose profile, no replay source and no model activation yet.*
 - [ ] **6.2 Demo script** (5 minutes) in `docs/DEMO.md`, rehearsed; fallback steps if the live attack fails.
 - [ ] **6.3 Backup video** (2-3 min) recorded from a clean run.
 - [ ] **6.4 README.** Architecture diagram, screenshots/GIFs, quick start, benchmarks, honest limitations, roadmap.
@@ -134,14 +134,14 @@ Added on top of the phases above, not replacing them. Ticked only when verified.
 
 - [x] **A1 Evidence-based investigation.** Alert analysis separates *observed* (stored data + source), *inferred* (model, rule, heuristic) and *unknown*, each with its basis. ✅ *API test + component test; checked in the browser on the demo scenario.*
 - [x] **A2 VPN and attribution.** Observed IP and its limits always shown; identity only from imported VPN / DHCP / auth / EDR / directory / manual records, with source, validity window, graded confidence, ambiguity flag and caveats; "unknown" plus what would help otherwise. ✅ *CSV import of identity records; live connectors to VPN, AD or EDR are not built (see Decisions).*
-- [ ] **A3 Device and user context.** Device type estimated from accepted services, always labelled low-confidence with its basis; "unknown" otherwise. ⏳ *Done for IP assets; no OS fingerprinting or user context beyond imported identity records.*
+- [x] **A3 Device and user context.** Device type estimated from accepted services, always labelled low-confidence with its basis; "unknown" otherwise, with what would help. ✅ *Asset pages show the estimate and every identity record for the address over time; an audited account / hostname / MAC lookup lists addresses held and alerts in those windows (API tests, e2e, browser). No OS fingerprinting: it would need the collector or an EDR export.*
 - [x] **A4 Analyst path.** Alert → analysis → triage verdict → incident (correlated, from alerts or manual) → attack timeline → investigation log → report, persisted and audited. ✅ *API tests + browser walkthrough on the demo scenario.*
 - [x] **A5 Visual identity.** Light ivory theme by default, dark high-contrast text, pine / ocean / plum accents, severity colours reserved for alerts, short purposeful motion that respects `prefers-reduced-motion`; dark theme kept. ✅ *Token pairs computed ≥ 4.5:1; checked at desktop and 375 px. Automated contrast tests (4.1) still missing.*
 - [x] **A6 Scenario correlation.** See 3.2; timeline in event time with facts and hypotheses (basis + limits); MITRE labelled "suggested", never proof. ✅
 - [x] **A7 Detection validation.** Reproducible runs of a model version or a rule version on a labelled dataset: per-class precision / recall / F1 / support, FP and FN samples (with SHAP for models), dataset SHA-256, training-overlap check, author and time, immutable records, notes on what the score does not prove. ✅ *API tests; browser run on the demo data. No lab or second public dataset imported yet, so no independent benchmark exists (2.7).*
-- [ ] **A8 Asset inventory over time.** ⏳ *Inventory, first/last seen, activity per time bucket, peers, notes. No history of changes per asset (only the current snapshot).*
+- [x] **A8 Asset inventory over time.** ✅ *Inventory, first/last seen, activity per time bucket, peers, notes, and an append-only change history recorded at each refresh (services, estimate, inactive / reactivated, note edits) without scan noise or duplicates (API test incl. concurrent refreshes, e2e, browser).*
 - [x] **A9 Prudent response.** Recommendations, simulations and analyst-reported actions are three separate things in the API, UI and report; Sentinel never claims to block, isolate or change a firewall. ✅ *Executed actions require a real integration that does not exist yet.*
-- [ ] **A10 Traceability.** ⏳ *Audit log covers imports, detections, triage, incident changes, simulations, reports, identity imports, validation runs and asset edits; alert detail shows its provenance and history; secrets are never logged. A single cross-object timeline view (ingest → detection → triage) is not built; ingestion is file import only.*
+- [x] **A10 Traceability.** ✅ *Audit log covers imports, detections, triage, incident changes, simulations, reports, identity imports and lookups, validation runs and asset edits; alert detail shows its provenance and history; the incident *Trace* (also in the report) links dataset import (hash, importer), identity imports used, detection (rules / models), triage, investigation, response and report in recorded order (API test, e2e, browser). Secrets are never logged. Ingestion is file import only until the collector (Phase 2).*
 
 ---
 
@@ -182,4 +182,8 @@ Added on top of the phases above, not replacing them. Ticked only when verified.
 | 2026-10-20 | Incident report rendered by the browser (print / save as PDF) instead of a server-side PDF. | No new dependency; server-side PDF stays open in 3.7. |
 | 2026-10-20 | E2E suite (`e2e/`, Playwright + axe, owner-approved) starts its own API on an in-memory MongoDB with `.env` loading disabled, on ports 4310 / 5310, never reusing a running server; no ML service, so every alert in it comes from a rule. | A test run must never reach a developer database or depend on a trained model. |
 | 2026-10-20 | `cn()` uses `extendTailwindMerge` with the custom font sizes and shadows. | tailwind-merge read `text-small` as a colour and dropped `text-accent-contrast`: dark text on every filled button (2.5:1), found by axe. |
+| 2026-10-20 | Account / device lookups are audited (`identity.lookup`, with the query); per-address identity views are not. | Searching a person across all records is profiling; viewing the identity of an address under investigation is routine. |
+| 2026-10-20 | Asset history is diffed at each inventory refresh against stored `serviceKeys` / `estimateLabel`; ports with fewer than 3 flows are ignored; inactive assets keep their last known state. | The inventory is rebuilt from flows, so history must be derived; scans would otherwise flood it. |
+| 2026-10-20 | `seed:demo` uses reserved `.test` addresses and random passwords printed once; it never resets or deletes, and refuses when the demo exists. | Real, honest demo accounts without default credentials or destructive behaviour. |
+| 2026-10-20 | Empty values in `.env` mean "not set". | `.env.example` ships `ML_SERVICE_TOKEN=` empty; the documented setup failed validation. |
 | 2026-10-20 | Demo data is synthetic, generated by a deterministic script (`npm run demo:data`), imported with `--demo`, and validation runs on DEMO datasets say the score proves nothing. | Honest demo without downloading or fabricating "real" captures. |

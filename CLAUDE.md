@@ -159,7 +159,7 @@ The legacy code was migrated: `apps/api` (TypeScript, tenancy, rotating refresh 
 SHAP). Labels are ground truth only; verdicts come from the ML service. Ticked roadmap items carry
 a ✅ note, partial ones a ⏳ note; read the Decisions log in `ROADMAP.md` before changing the data
 model or the model registry. Existing user data needs `npm run migrate:legacy` (dry run first; never
-run it without the owner's go-ahead). Commands in §6 work except `seed:demo` (use `demo:data`); `test:e2e` needs `npm run e2e:install` once.
+run it without the owner's go-ahead). Commands in §6 work (`seed:demo` is a dry run unless `--yes`; `test:e2e` needs `npm run e2e:install` once); `docker compose --profile demo` does not exist yet.
 Rules and alerts (1.7, 1.8) exist: rules run per import and on `POST /detections/run`; alerting is
 idempotent via `alertedAt`/`alertClaim` on flows and `hitKeys` on alerts — keep it that way.
 Investigation layer (owner brief, same day; "Supplementary objectives" in `ROADMAP.md`): correlation

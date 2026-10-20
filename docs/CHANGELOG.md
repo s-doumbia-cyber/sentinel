@@ -70,6 +70,23 @@ All notable changes. Dates are UTC.
 - Fixed in browser review: evidence plural, local-vs-UTC wording, a stray tab scrollbar and grid
   overflow at phone width.
 
+### Context over time, traceability and a real demo workspace
+- Asset history (`asset_events`, append-only): first observed, new or vanished services (ignoring
+  ports with fewer than 3 flows), estimate changes, inactive / seen again, analyst note edits.
+  Refreshes are serialized per organisation; assets built before this version start their history
+  explicitly instead of inventing changes. An unknown device type now says what would help.
+- Identity context: every record for an address over time, and an account / hostname / MAC lookup
+  listing the addresses it held and the alerts on them during those windows (literal,
+  case-insensitive match; Analysts and above; each lookup audited as `identity.lookup`).
+- Incident trace (`GET /incidents/:id/trace`, *Trace* tab, and in the report): dataset imports with
+  hash and importer, identity imports used, alert creation with rules / models, triage changes,
+  incident events, response and report, in recorded order.
+- `npm run seed:demo`: dry run by default, `--yes` creates an isolated demo organisation with Owner /
+  Analyst / Viewer accounts and random passwords printed once; refuses if it exists.
+- Fixed: copying `apps/api/.env.example` and setting the secret did not start the API (the empty
+  `ML_SERVICE_TOKEN=` failed validation). Empty values now mean "not set"; covered by a test.
+- `docs/WINDOWS_GUIDE.md`: verified install, configuration, start, accounts, tour and tests.
+
 ### End-to-end and accessibility tests
 - `e2e/` workspace with Playwright and axe (`npm run test:e2e`): analyst journey on the DEMO scenario,
   token storage and cookie flags, mobile layout at 375 px, WCAG 2.1 A/AA checks in light and dark
