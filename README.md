@@ -159,12 +159,24 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
   mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
 
 Continuous integration (`.github/workflows/ci.yml`) runs all of the above plus the Docker build on
-every push and pull request once the repository is on GitHub; it has not run there yet.
+every push to `main` and every pull request. On GitHub (private repository `s-doumbia-cyber/sentinel`,
+2026-10-20): run #1 on `main` (780d5b5) and runs #2 and #3 on pull request #1 passed all five jobs
+(Node 22, Node 24, ML, end-to-end, Docker).
 
 ## Honest limitations
 
-- **No live capture yet.** Flows come from CSV import only. The collector, the native feature
-  schema and the lab dataset are Phase 2.
+**Not built or not connected** (the UI and the API say so where it matters):
+
+- **No live network capture.** Flows come from CSV import only (upload or `import:csv`). The
+  collector, the ingest API with API keys, the native feature schema and the lab dataset are Phase 2.
+- **No VPN, Active Directory or EDR connector.** Identity context comes only from CSV exports you
+  import on the Identity sources page.
+- **No blocking, isolation or firewall change.** Sentinel recommends, generates blocklist
+  *simulations* that it never applies, and records actions analysts report doing themselves.
+- **No outbound notifications** (webhooks, Slack, email) and no live stream (SSE).
+
+Other limits:
+
 - **The bundled model is a toy benchmark.** Trained on 990 rows of one CICIDS2017 capture (BENIGN vs
   DDoS, one attacker IP): macro-F1 1.00 on a random split but 0.52 on unseen source IPs. It says
   nothing about other attacks or your network. Train on the full dataset for a broader benchmark,
