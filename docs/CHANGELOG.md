@@ -70,5 +70,14 @@ All notable changes. Dates are UTC.
 - Fixed in browser review: evidence plural, local-vs-UTC wording, a stray tab scrollbar and grid
   overflow at phone width.
 
+### End-to-end and accessibility tests
+- `e2e/` workspace with Playwright and axe (`npm run test:e2e`): analyst journey on the DEMO scenario,
+  token storage and cookie flags, mobile layout at 375 px, WCAG 2.1 A/AA checks in light and dark
+  themes. Runs on its own in-memory MongoDB; passes from Bash and PowerShell.
+- Accessibility fixes found by the suite: `cn()` dropped `text-accent-contrast` on filled buttons
+  (tailwind-merge did not know the custom font sizes; contrast 2.5:1), the organisation switcher's
+  accessible name did not contain its visible text, reference links relied on colour alone, and
+  scrollable tables and code blocks were not reachable by keyboard.
+
 ### Security
 - `csv-parse` 7 and `react-router` 7: `npm audit --omit=dev` reports no vulnerabilities.

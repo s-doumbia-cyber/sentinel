@@ -159,7 +159,7 @@ The legacy code was migrated: `apps/api` (TypeScript, tenancy, rotating refresh 
 SHAP). Labels are ground truth only; verdicts come from the ML service. Ticked roadmap items carry
 a ✅ note, partial ones a ⏳ note; read the Decisions log in `ROADMAP.md` before changing the data
 model or the model registry. Existing user data needs `npm run migrate:legacy` (dry run first; never
-run it without the owner's go-ahead). Commands in §6 work except `seed:demo` and `test:e2e` (not built).
+run it without the owner's go-ahead). Commands in §6 work except `seed:demo` (use `demo:data`); `test:e2e` needs `npm run e2e:install` once.
 Rules and alerts (1.7, 1.8) exist: rules run per import and on `POST /detections/run`; alerting is
 idempotent via `alertedAt`/`alertClaim` on flows and `hitKeys` on alerts — keep it that way.
 Investigation layer (owner brief, same day; "Supplementary objectives" in `ROADMAP.md`): correlation
@@ -184,6 +184,7 @@ Default UI theme is light ivory with pine / ocean / plum accents (`docs/DESIGN_S
 11. **CICIDS2017 timestamps are day/month/year.** The legacy parser read month/day ("4/7/2017" became April 7) and silently used "now" when parsing failed.
 12. **OpenMP + joblib in the ML container can busy-spin forever.** Keep `OMP_NUM_THREADS=1` in the image unless you re-test training inside Docker.
 13. **The Write/Edit tools turn `\uXXXX` escapes into literal characters.** Write escapes in source files with a script when the escape itself matters (e.g. a BOM regex).
+14. **tailwind-merge only knows Tailwind's default scales.** Custom tokens (`text-small`, `shadow-e1`) must be registered in `cn()` (`extendTailwindMerge`), or it silently drops a colour or a size that shares the `text-` prefix.
 
 ## 15. Environment notes
 

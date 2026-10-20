@@ -128,6 +128,7 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 | `npm run migrate:legacy [-- --apply]` | migrate data from the old backend |
 | `npm run smoke [-- http://host:port]` | end-to-end check against a running stack |
 | `npm run demo:data` | write the synthetic DEMO scenario files to `data/demo/` (no database access) |
+| `npm run e2e:install` then `npm run test:e2e` | Playwright end-to-end and accessibility suite (own throwaway stack) |
 
 ## Testing
 
@@ -138,7 +139,14 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
   upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import, scoring, stats,
   evaluation, migration, alerts and rules, correlation, incident events, response simulations,
   reports, assets, identity attribution, validation runs.
-- `apps/web`: API client, rule descriptions, evidence and attribution panels (Testing Library).
+- `apps/web`: API client, class merging, rule descriptions, evidence and attribution panels (Testing Library).
+- `e2e` (Playwright, Chromium): the analyst journey on the DEMO scenario (alert → observed / inferred /
+  unknown → DHCP attribution → triage → correlated incident → attack timeline → blocklist simulation
+  → report → investigation log), tokens absent from web storage, no horizontal scroll at 375 px,
+  every page reachable on mobile, and axe (WCAG 2.1 A/AA) with no serious violation on 18 views in the
+  light theme and 10 in the dark theme. The suite starts its own API on an in-memory MongoDB (ports
+  4310 / 5310) and never loads `apps/api/.env`. First run: `npm.cmd run e2e:install` downloads Chromium
+  (about 720 MB on disk under `%LOCALAPPDATA%\ms-playwright`).
 - `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version
   mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
 

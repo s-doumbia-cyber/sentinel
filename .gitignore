@@ -51,3 +51,7 @@ playwright-report/
 
 # Full CICIDS2017 CSVs for training (large, third-party data)
 data/cicids2017/
+
+# Playwright output
+e2e/test-results/
+e2e/playwright-report/
