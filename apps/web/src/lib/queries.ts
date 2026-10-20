@@ -6,6 +6,7 @@ import type {
   Asset,
   AssetDetail,
   AssetEvent,
+  DetectionSettings,
   IdentityLookup,
   IdentityRecord,
   IdentityImport,
@@ -269,6 +270,11 @@ export function useIdentityLookup(q: string) {
     refetchOnReconnect: false,
     retry: false,
   });
+}
+
+export function useDetectionSettings() {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "detectionSettings"], queryFn: () => api<DetectionSettings>("/detection/settings") });
 }
 
 export function useIdentityImports(enabled = true) {

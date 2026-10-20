@@ -56,6 +56,21 @@ const orgSchema = new Schema(
       needsReviewThreshold: { type: Number, default: 0.6, min: 0, max: 1 },
       /** Alerts from the same source within this window are grouped into one incident (docs/PRODUCT_SPEC.md F5). */
       correlationWindowMinutes: { type: Number, default: 15, min: 1, max: 1440 },
+      /** Model verdicts below this confidence are kept on the flow but never become alerts; 0 = off. */
+      modelAlertMinConfidence: { type: Number, default: 0, min: 0, max: 1 },
+      /** Addresses or networks whose flows never raise alerts (model or rule); each entry says why. */
+      alertAllowlist: {
+        type: [
+          {
+            _id: false,
+            cidr: { type: String, required: true },
+            note: { type: String, required: true, maxlength: 200 },
+            addedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+            addedAt: { type: Date, required: true },
+          },
+        ],
+        default: [],
+      },
       /** Active model version per feature schema, chosen by an Owner/Admin of this org. */
       activeModels: { type: Map, of: String, default: () => new Map() },
     },

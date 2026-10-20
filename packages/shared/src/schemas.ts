@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseCidr } from "./net.js";
 import { ROLES } from "./rbac.js";
 import { SEVERITIES } from "./severity.js";
 import { ATTACK_CLASSES, FEATURE_SCHEMA_IDS, SOURCE_KINDS } from "./taxonomy.js";
@@ -134,3 +135,29 @@ export const incidentNoteBodySchema = z.object({ text: z.string().trim().min(1).
 // ---- Members ---------------------------------------------------------------
 
 export const updateMemberRoleBodySchema = z.object({ role: roleSchema }).strict();
+
+// ---- Detection tuning (alert noise controls) ----------------------------------------
+
+export const MAX_ALLOWLIST_ENTRIES = 200;
+
+export const allowlistEntryInputSchema = z
+  .object({
+    cidr: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .refine((v) => parseCidr(v) !== null, "Use an address or a network such as 203.0.113.0/24 (host bits must be zero)"),
+    note: z.string().trim().min(1, "Say why this address is trusted").max(200),
+  })
+  .strict();
+
+export const detectionSettingsUpdateSchema = z
+  .object({
+    /** Model verdicts below this confidence never become alerts (they stay visible in Flows). 0 disables the filter. */
+    modelAlertMinConfidence: z.number().min(0).max(1).optional(),
+    allowlist: z.array(allowlistEntryInputSchema).max(MAX_ALLOWLIST_ENTRIES).optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, "At least one field is required");
+export type DetectionSettingsUpdate = z.infer<typeof detectionSettingsUpdateSchema>;

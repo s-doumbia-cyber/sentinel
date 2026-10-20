@@ -23,6 +23,7 @@ import { flowRoutes } from "./modules/flows/flow.routes.js";
 import { CorrelationService } from "./modules/incidents/correlation.service.js";
 import { incidentRoutes } from "./modules/incidents/incident.routes.js";
 import { incidentTraceRoutes } from "./modules/incidents/trace.routes.js";
+import { detectionSettingsRoutes } from "./modules/rules/detection-settings.routes.js";
 import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
@@ -154,6 +155,7 @@ export function createApp(options: AppOptions): SentinelApp {
     incidentRoutes(config),
     incidentWorkflowRoutes(config),
     incidentTraceRoutes(config),
+    detectionSettingsRoutes(config),
     memberRoutes(config),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),

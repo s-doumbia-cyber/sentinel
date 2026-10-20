@@ -1,9 +1,10 @@
 import mongoose, { type Types } from "mongoose";
-import { STARTER_RULES, ruleDefinitionSchema, type RuleDefinition } from "@sentinel/shared";
+import { STARTER_RULE_UPGRADES, STARTER_RULES, ruleDefinitionSchema, type RuleDefinition } from "@sentinel/shared";
 import type { Logger } from "../../lib/logger.js";
-import { Org } from "../../models/identity.js";
 import { Flow, Rule } from "../../models/tenant.js";
 import { AlertService } from "../alerts/alert.service.js";
+import { loadAlertPolicy } from "../alerts/policy.js";
+import { writeAudit } from "../audit/audit.service.js";
 import { RuleEvaluator, type RuleFlow, type RuleHit } from "./evaluator.js";
 
 export interface FlowScope {
@@ -12,8 +13,50 @@ export interface FlowScope {
   to?: Date | undefined;
 }
 
-/** Seeds the starter rules for an org once; existing (possibly edited) rules are left alone. */
+/** Key-order-independent JSON, so two equal definitions compare equal whatever their source. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value as Record<string, unknown>)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((value as Record<string, unknown>)[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * Moves an org's starter rule to a revised default when, and only when, its
+ * definition still equals the previous default exactly (any analyst edit makes
+ * it differ). Its enabled state is kept. The new version is audited with the
+ * reason, so the change is visible and traceable.
+ */
+async function upgradeStarterRules(orgId: Types.ObjectId): Promise<void> {
+  for (const up of STARTER_RULE_UPGRADES) {
+    const rule = await Rule.findOne({ orgId, key: up.key, starter: true }).lean();
+    if (!rule) continue;
+    const { enabled: _enabled, ...stored } = ruleDefinitionSchema.parse(rule.definition);
+    const { enabled: _old, ...previous } = ruleDefinitionSchema.parse(up.from);
+    if (canonical(stored) !== canonical(previous)) continue;
+    const target = STARTER_RULES.find((r) => r.key === up.key);
+    if (!target) continue;
+    const next = { ...ruleDefinitionSchema.parse(target), enabled: rule.enabled };
+    const res = await Rule.updateOne({ orgId, _id: rule._id, version: rule.version }, { $set: { definition: next }, $inc: { version: 1 } });
+    if (res.modifiedCount) {
+      await writeAudit(null, {
+        orgId,
+        actorId: null,
+        action: "rule.upgrade",
+        target: { type: "rule", id: String(rule._id) },
+        meta: { key: up.key, fromVersion: rule.version, toVersion: rule.version + 1, reason: up.reason },
+      });
+    }
+  }
+}
+
+/** Seeds the starter rules for an org once; edited rules are left alone, unedited ones follow revised defaults. */
 export async function ensureStarterRules(orgId: Types.ObjectId): Promise<void> {
+  await upgradeStarterRules(orgId);
   if ((await Rule.countDocuments({ orgId, starter: true })) >= STARTER_RULES.length) return;
   await Rule.bulkWrite(
     STARTER_RULES.map((r) => {
@@ -98,16 +141,18 @@ export class RuleService {
   async run(orgId: Types.ObjectId, scope: FlowScope) {
     await ensureStarterRules(orgId);
     const rules = (await Rule.find({ orgId, enabled: true }).lean()).map(definitionOf);
-    if (!rules.length) return { scanned: 0, hits: 0, created: 0 };
-    const org = await Org.findById(orgId).lean();
-    const threshold = org?.settings?.needsReviewThreshold ?? 0.6;
+    if (!rules.length) return { scanned: 0, hits: 0, created: 0, suppressed: 0 };
+    const policy = await loadAlertPolicy(orgId);
     const { scanned, hits } = await this.evaluate(orgId, rules, scope);
     let created = 0;
+    let suppressed = 0;
     for (const { rule, hit } of hits) {
       const ids = hit.sampleFlowIds.map((id) => new mongoose.Types.ObjectId(id));
-      if ((await this.alerts.recordRuleHit(orgId, threshold, rule, hit, ids)) === "created") created++;
+      const outcome = await this.alerts.recordRuleHit(orgId, policy, rule, hit, ids);
+      if (outcome === "created") created++;
+      if (outcome === "suppressed") suppressed++;
     }
-    this.logger.info({ orgId: String(orgId), scanned, hits: hits.length, created }, "Rules evaluated");
-    return { scanned, hits: hits.length, created };
+    this.logger.info({ orgId: String(orgId), scanned, hits: hits.length, created, suppressed }, "Rules evaluated");
+    return { scanned, hits: hits.length, created, suppressed };
   }
 }

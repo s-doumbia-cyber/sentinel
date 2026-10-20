@@ -5,6 +5,7 @@ import type { Logger } from "../../lib/logger.js";
 import { Org } from "../../models/identity.js";
 import { Flow, type FlowDoc } from "../../models/tenant.js";
 import type { AlertService, ModelVerdictEvidence } from "../alerts/alert.service.js";
+import { loadAlertPolicy, policyFromSettings, type AlertPolicy } from "../alerts/policy.js";
 import { MlContractError, isKnownClass, type MlClient } from "../models/ml.client.js";
 
 const BATCH = 500;
@@ -51,14 +52,14 @@ export class ScoringService {
       const org = await Org.findById(orgId).lean();
       if (!org) throw AppError.notFound("Organisation");
       const active = activeModelsOf(org);
-      const threshold = org.settings?.needsReviewThreshold ?? 0.6;
+      const policy = policyFromSettings(org.settings);
       const results: SchemaRunResult[] = [];
       for (const schema of FEATURE_SCHEMA_IDS) {
         const pending = await Flow.countDocuments({ orgId, scoreStatus: "pending", featureSchema: schema });
         const version = active[schema] ?? null;
         if (!pending) results.push({ schema, status: "nothing_pending", modelVersion: version, scored: 0, errored: 0 });
         else if (!version) results.push({ schema, status: "no_active_model", modelVersion: null, scored: 0, errored: 0 });
-        else results.push(await this.scoreSchema(orgId, schema, version, threshold));
+        else results.push(await this.scoreSchema(orgId, schema, version, policy));
       }
       return results;
     } finally {
@@ -66,7 +67,8 @@ export class ScoringService {
     }
   }
 
-  private async scoreSchema(orgId: Types.ObjectId, schema: FeatureSchemaId, version: string, threshold: number): Promise<SchemaRunResult> {
+  private async scoreSchema(orgId: Types.ObjectId, schema: FeatureSchemaId, version: string, policy: AlertPolicy): Promise<SchemaRunResult> {
+    const threshold = policy.needsReviewThreshold;
     const result: SchemaRunResult = { schema, status: "scored", modelVersion: version, scored: 0, errored: 0 };
     for (;;) {
       const flows = await Flow.find({ orgId, scoreStatus: "pending", featureSchema: schema })
@@ -151,7 +153,7 @@ export class ScoringService {
           },
         ];
       });
-      await this.alerts.recordModelVerdicts(orgId, threshold, evidence);
+      await this.alerts.recordModelVerdicts(orgId, policy, evidence);
       const errored = ops.filter((o) => "updateOne" in o && (o.updateOne.update as { $set: { scoreStatus: string } }).$set.scoreStatus === "error").length;
       result.errored += errored;
       result.scored += write.modifiedCount - errored;
@@ -164,8 +166,7 @@ export class ScoringService {
    * before alerting existed, or migrated) into alerts. Idempotent via `alertedAt`.
    */
   async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<number> {
-    const org = await Org.findById(orgId).lean();
-    const threshold = org?.settings?.needsReviewThreshold ?? 0.6;
+    const policy = await loadAlertPolicy(orgId);
     let created = 0;
     for (;;) {
       const flows = await Flow.find({
@@ -182,7 +183,7 @@ export class ScoringService {
       if (!flows.length) return created;
       created += await this.alerts.recordModelVerdicts(
         orgId,
-        threshold,
+        policy,
         flows.flatMap((f) =>
           f.scored
             ? [

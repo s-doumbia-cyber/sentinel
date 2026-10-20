@@ -15,6 +15,7 @@ import { cn, formatWhen, utcTitle } from "@/lib/format";
 import { useSessions } from "@/lib/queries";
 import type { User, UserPreferences } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { DetectionTuning } from "./DetectionTuning";
 
 function useSavePrefs() {
   const { setUser } = useAuth();
@@ -279,6 +280,7 @@ const TABS = [
   { value: "profile", label: "Profile & preferences", el: <Profile /> },
   { value: "security", label: "Security", el: <Security /> },
   { value: "data", label: "Data & privacy", el: <Data /> },
+  { value: "detection", label: "Detection", el: <DetectionTuning /> },
 ];
 
 export function SettingsPage() {

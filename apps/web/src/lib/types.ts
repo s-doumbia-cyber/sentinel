@@ -510,3 +510,12 @@ export interface ValidationRun {
   falseNegatives: ErrorSample[];
   notes: string[];
 }
+
+export interface DetectionSettings {
+  /** 0–1; model verdicts below it never become alerts. 0 = off. */
+  modelAlertMinConfidence: number;
+  /** Read-only here: below it, model-only alerts are marked "needs review". */
+  needsReviewThreshold: number;
+  allowlist: { cidr: string; note: string; addedBy: string | null; addedAt: string }[];
+  suppressedVerdicts: { belowMinConfidence: number; allowlisted: number };
+}

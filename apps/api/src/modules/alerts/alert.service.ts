@@ -3,6 +3,7 @@ import type { Types } from "mongoose";
 import { DEFAULT_SEVERITY_BY_CLASS, severityRank, type AttackClass, type RuleDefinition } from "@sentinel/shared";
 import { Alert, Flow } from "../../models/tenant.js";
 import type { RuleHit } from "../rules/evaluator.js";
+import { isAllowlisted, type AlertPolicy } from "./policy.js";
 
 /** Evidence for the same (source, destination, type) within this bucket lands on one alert. */
 export const ALERT_BUCKET_MS = 10 * 60 * 1000;
@@ -113,12 +114,24 @@ export class AlertService {
    * running at the same time never count a flow twice. Trade-off: a crash
    * between the claim and the alert update loses that evidence (at-most-once);
    * durable queues (roadmap 1.5) will revisit this.
+   *
+   * Verdicts below the org's minimum confidence, or involving an allowlisted
+   * address, are claimed with the reason in `alertSuppressed` and create no
+   * alert; the verdict stays on the flow.
    */
-  async recordModelVerdicts(orgId: Types.ObjectId, threshold: number, verdicts: ModelVerdictEvidence[]): Promise<number> {
+  async recordModelVerdicts(orgId: Types.ObjectId, policy: AlertPolicy, verdicts: ModelVerdictEvidence[]): Promise<number> {
     const malicious = verdicts.filter((v) => v.label !== "Normal");
     if (!malicious.length) return 0;
+    const reasonOf = (v: ModelVerdictEvidence) =>
+      isAllowlisted(policy, v.sourceIp, v.destinationIp) ? "allowlisted" : v.confidence < policy.modelAlertMinConfidence ? "below_min_confidence" : null;
+    for (const reason of ["allowlisted", "below_min_confidence"] as const) {
+      const ids = malicious.filter((v) => reasonOf(v) === reason).map((v) => v.flowId);
+      if (ids.length) await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null }, { $set: { alertedAt: new Date(), alertSuppressed: reason } });
+    }
+    const threshold = policy.needsReviewThreshold;
     const claim = randomUUID();
-    const ids = malicious.map((v) => v.flowId);
+    const ids = malicious.filter((v) => reasonOf(v) === null).map((v) => v.flowId);
+    if (!ids.length) return 0;
     await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null }, { $set: { alertedAt: new Date(), alertClaim: claim } });
     // Looked up by _id so the check uses the primary index.
     const claimed = new Set((await Flow.find({ orgId, _id: { $in: ids }, alertClaim: claim }).select("_id").lean()).map((f) => String(f._id)));
@@ -157,8 +170,15 @@ export class AlertService {
     return created;
   }
 
-  async recordRuleHit(orgId: Types.ObjectId, threshold: number, rule: RuleDefinition, hit: RuleHit, flowIds: Types.ObjectId[]): Promise<"created" | "updated" | "skipped"> {
+  async recordRuleHit(
+    orgId: Types.ObjectId,
+    policy: AlertPolicy,
+    rule: RuleDefinition,
+    hit: RuleHit,
+    flowIds: Types.ObjectId[],
+  ): Promise<"created" | "updated" | "skipped" | "suppressed"> {
     const g = hit.group;
+    if (isAllowlisted(policy, typeof g.sourceIp === "string" ? g.sourceIp : null, typeof g.destinationIp === "string" ? g.destinationIp : null)) return "suppressed";
     return this.upsert(
       {
         orgId,
@@ -175,7 +195,7 @@ export class AlertService {
         hit,
         flowIds,
       },
-      threshold,
+      policy.needsReviewThreshold,
     );
   }
 }

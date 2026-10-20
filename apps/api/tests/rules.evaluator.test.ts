@@ -94,8 +94,18 @@ describe("starter rules", () => {
 
   describe("R-SLOWHTTP-01", () => {
     const rule = rules["R-SLOWHTTP-01"]!;
-    it("fires on 20 long low-rate flows to a web server within 5 minutes", () => {
-      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ flowDurationMs: 90_000 })))).toHaveLength(1);
+    const silentServer = { "Flow Packets/s": 0.5, "Total Length of Bwd Packets": 0 };
+    it("fires on 20 long low-rate flows to a plain-HTTP server that sends almost nothing back", () => {
+      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ flowDurationMs: 90_000, features: silentServer })))).toHaveLength(1);
+      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ destinationPort: 8080, flowDurationMs: 90_000, features: silentServer })))).toHaveLength(1);
+    });
+    // Both cases below were false positives of the previous default on CICIDS2017 (long benign HTTPS / CDN sessions).
+    it("does not fire when the server answers, or on HTTPS sessions", () => {
+      const answered = { "Flow Packets/s": 0.5, "Total Length of Bwd Packets": 11_595 };
+      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ flowDurationMs: 90_000, features: answered })))).toHaveLength(0);
+      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ destinationPort: 443, flowDurationMs: 90_000, features: silentServer })))).toHaveLength(0);
+      // Missing payload size: no evidence the server stayed silent, so no hit.
+      expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ flowDurationMs: 90_000, features: { "Flow Packets/s": 0.5 } })))).toHaveLength(0);
     });
     it("does not fire on short or fast flows", () => {
       expect(evaluateRule(rule, burst(25, 4 * 60_000, () => ({ flowDurationMs: 2_000 })))).toHaveLength(0);

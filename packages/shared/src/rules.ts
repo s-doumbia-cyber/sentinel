@@ -138,14 +138,38 @@ export const STARTER_RULES: RuleDefinitionInput[] = [
   {
     key: "R-SLOWHTTP-01",
     name: "Slow HTTP requests",
-    description: "Many long, low-rate flows from one source to one web server (Slowloris-style).",
+    description: "Many long, low-rate flows from one source to one plain-HTTP server that sends almost nothing back (Slowloris-style).",
     type: "threshold",
     window: "5m",
     groupBy: ["sourceIp", "destinationIp"],
     condition: { gte: 20 },
-    filter: { protocol: "TCP", destinationPorts: [80, 443, 8080], minDurationMs: 30_000, featureLte: { "Flow Packets/s": 1 } },
+    filter: { protocol: "TCP", destinationPorts: [80, 8080], minDurationMs: 30_000, featureLte: { "Flow Packets/s": 1, "Total Length of Bwd Packets": 10 } },
     severity: "medium",
     alertType: "DoSSlowloris",
+  },
+];
+
+/**
+ * Starter rules whose default changed. An org's copy is upgraded only while it
+ * still equals `from` and no analyst edited it; edited rules are left alone.
+ */
+export const STARTER_RULE_UPGRADES: { key: string; from: RuleDefinitionInput; reason: string }[] = [
+  {
+    key: "R-SLOWHTTP-01",
+    from: {
+      key: "R-SLOWHTTP-01",
+      name: "Slow HTTP requests",
+      description: "Many long, low-rate flows from one source to one web server (Slowloris-style).",
+      type: "threshold",
+      window: "5m",
+      groupBy: ["sourceIp", "destinationIp"],
+      condition: { gte: 20 },
+      filter: { protocol: "TCP", destinationPorts: [80, 443, 8080], minDurationMs: 30_000, featureLte: { "Flow Packets/s": 1 } },
+      severity: "medium",
+      alertType: "DoSSlowloris",
+    },
+    reason:
+      "Replayed over the eight CICIDS2017 day files (2.83 million flows), the old filter fired 161 times, 153 of them without slow-HTTP attack flows (long benign HTTPS sessions). Requiring ports 80/8080 and at most 10 bytes from the server kept the 8 attack detections and left 7 other hits, all on the attacker's own pair.",
   },
 ];
 

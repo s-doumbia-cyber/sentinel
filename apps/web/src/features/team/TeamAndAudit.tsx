@@ -120,6 +120,10 @@ const ACTIONS = [
   "identity.import",
   "identity.import_delete",
   "validation.run",
+  "identity.lookup",
+  "detection.settings_update",
+  "rule.upgrade",
+  "demo.seed",
 ];
 
 export function AuditPage() {

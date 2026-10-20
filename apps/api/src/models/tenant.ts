@@ -63,9 +63,13 @@ const flowSchema = new Schema(
     /** Set once a malicious verdict has been folded into an alert (keeps alerting idempotent). */
     alertedAt: { type: Date, default: null },
     alertClaim: { type: String, default: null },
+    /** Why a malicious verdict did not become an alert (the verdict itself is kept). */
+    alertSuppressed: { type: String, enum: ["below_min_confidence", "allowlisted", null], default: null },
   },
   { timestamps: true },
 );
+// Only flows whose verdict was kept out of alerts: the Settings page counts them by reason.
+flowSchema.index({ orgId: 1, alertSuppressed: 1 }, { partialFilterExpression: { alertSuppressed: { $type: "string" } } });
 flowSchema.index({ orgId: 1, timestamp: -1, _id: -1 });
 flowSchema.index({ orgId: 1, sourceIp: 1, timestamp: -1 });
 flowSchema.index({ orgId: 1, destinationIp: 1, timestamp: -1 });
