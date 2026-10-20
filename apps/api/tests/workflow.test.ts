@@ -1,5 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import { Org } from "../src/models/identity.js";
 import { Alert, AuditLog, Incident, IncidentEvent } from "../src/models/tenant.js";
 import { API, addMember, buildApp, oid, registerUser, writeCsv, type CsvRow } from "./helpers.js";
 
@@ -65,6 +66,15 @@ describe("correlation", () => {
     const { u } = await setup([...scan("10.9.9.9", "7/7/2017 3:40"), ...sshBurst("10.9.9.9", "7/7/2017 4:40"), ...scan("10.8.8.8", "7/7/2017 3:40")]);
     expect(await Alert.countDocuments({ orgId: oid(u.orgId) })).toBe(3);
     expect(await Incident.countDocuments({ orgId: oid(u.orgId) })).toBe(0);
+  });
+
+  it("respects the organisation's correlation window", async () => {
+    const u = await registerUser(sa);
+    await Org.updateOne({ _id: oid(u.orgId) }, { $set: { "settings.correlationWindowMinutes": 90 } });
+    await importRows(u.token, [...scan("10.9.9.9", "7/7/2017 3:40"), ...sshBurst("10.9.9.9", "7/7/2017 4:40")]);
+    const incidents = await Incident.find({ orgId: oid(u.orgId) }).lean();
+    expect(incidents).toHaveLength(1);
+    expect(incidents[0]?.correlation?.windowMinutes).toBe(90);
   });
 
   it("joins a new alert from the same source to the open incident", async () => {

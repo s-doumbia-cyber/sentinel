@@ -2,60 +2,75 @@
 
 ## 1. Design direction
 
-**"Calm command center."** A mature evolution of the current dark-glass look: keep the dark, technical identity and the violet accent, but remove decoration that competes with data. Reference quality: Linear, Vercel dashboard, Datadog, Arc.
+> **Revised 2026-10-20 (owner brief).** The original direction was dark-first with a violet accent.
+> It is replaced by a light, ivory identity; the dark theme stays as an option. Values below are the
+> implemented ones (`apps/web/src/index.css`). **This supersedes the earlier dark/violet spec; the
+> conflict is recorded in the ROADMAP decisions log.**
+
+**"Clear field notebook."** A calm, readable workspace for long investigations: warm ivory and soft
+neutral backgrounds, dark high-contrast text, sober natural accents (pine by default, ocean or plum),
+and colour that means something. Reference quality: Linear, Vercel dashboard, Datadog.
 
 Principles:
-1. **Data first.** Cards and tables are solid surfaces. Glass/blur is reserved for the top bar and non-critical hero areas.
-2. **Hierarchy through type, spacing, and contrast, not glow.** Glow only for live status and the primary action.
-3. **Density with air.** Dense tables, generous page rhythm. Offer a compact density toggle.
-4. **One accent.** Violet by default; the user may pick cyan or emerald. Severity colours are separate and fixed.
-5. **Motion explains.** Animate state change and spatial relationships, never for ornament. Respect `prefers-reduced-motion`.
-6. **Overlays are opaque.** Dropdowns, popovers, drawers, dialogs, command palette use solid surface tokens (lesson learned from the bleed-through bug).
+1. **Data first.** Cards and tables are solid surfaces. No glass, blur, glow or decorative gradients.
+2. **Hierarchy through type, spacing and contrast.** Body text ≥ 7:1, secondary ≥ 4.5:1 on every surface it sits on.
+3. **Density with air.** Dense tables, generous page rhythm. A compact density toggle exists.
+4. **One accent, never a severity.** The accent marks actions, navigation and focus. Severity colours are reserved for alerts and incidents and always come with an icon and a label.
+5. **Motion explains.** Short entrance fades and slides for pages, drawers, dialogs and toasts (≤ 320 ms); skeleton shimmer while loading. Under `prefers-reduced-motion` every animation is reduced to an instant change.
+6. **Overlays are opaque.** Dropdowns, popovers, drawers, dialogs use solid surface tokens over an opaque-enough scrim (lesson learned from the bleed-through bug).
+7. **Say what is known.** Observed facts, inferences and unknowns look different (solid, tinted, dashed); estimates are labelled "estimate" with their basis.
 
 ## 2. Tokens
 
-Implemented as CSS variables on `:root` (light) and `[data-theme="dark"]`, exposed through Tailwind. **Components never use raw hex.**
+Implemented as CSS variables (RGB triplets so Tailwind can apply alpha) on `:root` / `[data-theme="light"]`
+(default) and `[data-theme="dark"]`, exposed through Tailwind. **Components never use raw hex.**
 
-### 2.1 Dark theme (default)
+### 2.1 Light theme (default)
 
 | Token | Value | Use |
 |---|---|---|
-| `--bg-0` | `#070910` | Page background behind everything |
-| `--bg-1` | `#0B0F19` | App background |
-| `--surface-1` | `#111726` | Cards, tables |
-| `--surface-2` | `#172033` | Raised: popovers, drawers, inputs |
-| `--surface-3` | `#1E2A42` | Hover / selected rows |
-| `--border-subtle` | `rgba(255,255,255,0.06)` | Dividers |
-| `--border` | `rgba(255,255,255,0.10)` | Card/input borders |
-| `--border-strong` | `rgba(255,255,255,0.18)` | Focus-adjacent, hover |
-| `--text-1` | `#E8EBF4` | Primary text |
-| `--text-2` | `#A9B2C7` | Secondary text |
-| `--text-3` | `#7C87A3` | Tertiary/placeholder (≥ 4.5:1 on `--bg-1`) |
-| `--accent` | `#8B5CF6` | Primary actions, active nav, focus ring |
-| `--accent-fg` | `#A78BFA` | Accent used as text/icon on dark |
-| `--accent-soft` | `rgba(139,92,246,0.14)` | Accent backgrounds |
+| `--bg-0` | `#F2EEE4` | Navigation rail |
+| `--bg-1` | `#FAF8F3` | Page background (ivory) |
+| `--surface-1` | `#FFFEFB` | Cards, tables |
+| `--surface-2` | `#F7F4ED` | Inputs, drawers, popovers |
+| `--surface-3` | `#EDE8DD` | Hover / selected rows |
+| `--border-subtle` / `--border` / `--border-strong` | `#ECE7DC` / `#DDD6C8` / `#C3B9A7` | Dividers / cards and inputs / hover |
+| `--text-1` | `#1F2421` | Primary text (14.9:1 on ivory) |
+| `--text-2` | `#4A524C` | Secondary text (7.6:1) |
+| `--text-3` | `#5B635D` | Tertiary text (5.8:1 on ivory, 5.1:1 on `--surface-3`) |
+| `--accent` / `--accent-solid` | `#2F6B5E` (pine) | Primary buttons (white text 6.2:1), active nav, focus ring |
+| `--accent-fg` | `#265C50` | Accent as text / icon |
+| `--accent-soft` | pine at 10 % | Selected backgrounds |
+| `--scrim` | `rgba(31,36,33,.32)` | Behind dialogs and drawers |
 
-### 2.2 Light theme
+### 2.2 Dark theme (option, or "match system")
 
-`--bg-1 #F6F7FB`, `--surface-1 #FFFFFF`, `--surface-2 #F0F2F8`, `--surface-3 #E8ECF5`, `--border #D9DEEA`, `--text-1 #0F172A`, `--text-2 #475569`, `--text-3 #64748B`, `--accent #7C3AED`, `--accent-fg #6D28D9`. Verify AA for every pair.
+Warm neutrals instead of blue-black: `--bg-0 #111311`, `--bg-1 #161816`, `--surface-1 #1D201D`,
+`--surface-2 #242824`, `--surface-3 #2E332E`, borders `rgba(236,234,227,.07/.12/.20)`,
+`--text-1 #ECEAE3`, `--text-2 #B9BCB4`, `--text-3 #969B93`, accent pine `#6FB3A2` with dark text on
+filled buttons. Every text / surface pair is ≥ 4.5:1.
 
 ### 2.3 Accent presets
-Violet `#8B5CF6` (default), Cyan `#22D3EE`, Emerald `#34D399`. Each preset defines `--accent`, `--accent-fg`, `--accent-soft`. Charts' first series follows the accent; severity never does.
+Pine `#2F6B5E` (default), Ocean `#2D5F8A`, Plum `#6A4C7D` in light; `#6FB3A2`, `#7DAAD6`, `#BEA0D4`
+in dark. Each preset defines `--accent`, `--accent-fg`, `--accent-solid`, `--accent-contrast`,
+`--accent-soft`. Legacy values (violet, cyan, emerald, pink…) map to pine. Charts' first series
+follows the accent; severity never does.
 
-### 2.4 Severity and status (fixed, theme-independent hue)
+### 2.4 Severity and status (reserved for alerts and incidents)
 
-| Level | Colour | Icon | Label |
+| Level | Colour (light) | Icon | Label |
 |---|---|---|---|
-| Critical | `#F43F5E` | `ShieldAlert` | CRITICAL |
-| High | `#FB923C` | `AlertTriangle` | HIGH |
-| Medium | `#FACC15` | `AlertCircle` | MEDIUM |
-| Low | `#38BDF8` | `Info` | LOW |
-| Info | `#94A3B8` | `Dot` | INFO |
-| Success / Safe | `#34D399` | `CheckCircle2` | OK |
+| Critical | `#E11D48` | `ShieldAlert` | CRITICAL |
+| High | `#EA580C` | `AlertTriangle` | HIGH |
+| Medium | `#CA8A04` | `AlertCircle` | MEDIUM |
+| Low | `#0284C7` | `Info` | LOW |
+| Info | `#78716C` | `Dot` | INFO |
+| Success / Safe | `#15803D` | `CheckCircle2` | OK |
 
-Rules: always icon + text + colour; badge = tinted background (14% alpha) + solid border-left or text in the level colour; text on tints must pass 4.5:1.
+Rules: always icon + text + colour; badge = 15 % tint of the level colour with a darker text step
+(`--sevfg-*`) so labels keep 4.5:1 on their tint. Dark theme uses lighter steps of the same hues.
 
-Source-kind badges: `LIVE` (emerald, pulsing dot, pausable), `REPLAY` (cyan), `IMPORTED` (slate), `DEMO` (amber, dashed border).
+Source-kind badges: `LIVE` (green), `REPLAY` (teal), `IMPORTED` (stone), `DEMO` (amber, dashed border).
 
 ### 2.5 Typography
 

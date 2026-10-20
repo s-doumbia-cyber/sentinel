@@ -162,6 +162,12 @@ model or the model registry. Existing user data needs `npm run migrate:legacy` (
 run it without the owner's go-ahead). Commands in §6 work except `seed:demo` and `test:e2e` (not built).
 Rules and alerts (1.7, 1.8) exist: rules run per import and on `POST /detections/run`; alerting is
 idempotent via `alertedAt`/`alertClaim` on flows and `hitKeys` on alerts — keep it that way.
+Investigation layer (owner brief, same day; "Supplementary objectives" in `ROADMAP.md`): correlation
+into incidents (serialized per org), append-only `incident_events`, asset inventory rebuilt from flows,
+identity attribution only from imported records (graded, never inferred from traffic), validation
+runs (immutable), response = recommend / simulate / analyst-reported only — never claim enforcement.
+Default UI theme is light ivory with pine / ocean / plum accents (`docs/DESIGN_SYSTEM.md` §1-2 revised).
+`npm run demo:data` writes the synthetic DEMO scenario (no DB access); `seed:demo` still does not exist.
 
 ## 14. Lessons learned (do not repeat these bugs)
 

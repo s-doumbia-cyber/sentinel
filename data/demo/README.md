@@ -32,7 +32,7 @@ npm run import:csv -- --org <your-org-slug> --demo "data/demo/demo-scenario-flow
 ```
 
 The `--demo` flag tags every flow `DEMO`. A command-line import does not trigger detection:
-open **Rules** and click "Run now" (uploads from the Datasets page trigger it automatically).
+open **Alerts** and click "Run detections" (uploads from the Datasets page trigger it automatically).
 Then import `demo-identity.csv` from **Identity sources**.
 Use an organisation created for the demo: imported flows and identity records can be
 removed from the Datasets and Identity sources pages.

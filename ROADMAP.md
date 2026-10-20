@@ -64,13 +64,13 @@
 
 **Goal:** the analyst workflow.
 
-- [ ] **3.1 Entities.** Entity upsert on ingest/alert; entity API; notes/tags. *AC: tests.*
-- [ ] **3.2 Correlation.** Window-based grouping into incidents; severity escalation by kill-chain stage; MITRE strip. *AC: two related alerts → one incident (tested); config window respected.*
-- [ ] **3.3 Incident API and events.** Status workflow, priority, assignee, SLA timers (server-computed), comments with mentions, timeline events. *AC: every change creates event + audit.* ⏳ *Incidents: create, status, priority, assignee, notes, audit; no timeline events or SLA yet.*
+- [ ] **3.1 Entities.** Entity upsert on ingest/alert; entity API; notes/tags. *AC: tests.* ⏳ *2026-10-20: IP assets rebuilt from flows after every import (idempotent aggregation, stale → inactive), `GET/PATCH /assets`, notes/tags kept across rebuilds, 4 integration tests. Only IP entities: user/host/domain entities and upsert on live ingest are not done.*
+- [x] **3.2 Correlation.** Window-based grouping into incidents; severity escalation by kill-chain stage; MITRE strip. *AC: two related alerts → one incident (tested); config window respected.* ✅ *2026-10-20: same source within the org's `correlationWindowMinutes` (default 15) → one incident, +1 severity for ≥2 kill-chain stages, joins an open incident, serialized per org; tests for grouping, no grouping, joining and a 90-minute org window. The grouping is labelled a hypothesis. MITRE shown per step on the attack timeline (no separate strip).*
+- [ ] **3.3 Incident API and events.** Status workflow, priority, assignee, SLA timers (server-computed), comments with mentions, timeline events. *AC: every change creates event + audit.* ⏳ *2026-10-20: append-only `incident_events` (created, correlated, alerts linked, status/priority/severity/assignee/title changes, notes, recorded actions, simulations, reports), each mirrored in `audit_log`, tested. SLA timers and mentions not done.*
 - [ ] **3.4 Graph endpoint.** `/entities/:type/:value/graph` with bounded size and time range. *AC: 500-node response under 500 ms.*
-- [ ] **3.5 Response guidance.** Knowledge-base content per attack type; blocklist generator (iptables/nftables/CSV) with syntax tests; "simulate apply". *AC: generated rules validated by tests.*
+- [x] **3.5 Response guidance.** Knowledge-base content per attack type; blocklist generator (iptables/nftables/CSV) with syntax tests; "simulate apply". *AC: generated rules validated by tests.* ✅ *2026-10-20: versioned knowledge base for every malicious class (confirm / contain / references), iptables/ip6tables, nftables and CSV generators with syntax and comment-injection tests; simulations are logged and marked `applied: false`. Sentinel has no enforcement integration and says so.*
 - [ ] **3.6 Integrations.** Webhooks (HMAC-signed), Slack, email; delivery log; retry with backoff. *AC: failure-path tests.*
-- [ ] **3.7 Reports backend.** Executive/incident reports data layer; server-side PDF; CSV/XLSX. *AC: report numbers equal dashboard numbers for same range (tested).*
+- [ ] **3.7 Reports backend.** Executive/incident reports data layer; server-side PDF; CSV/XLSX. *AC: report numbers equal dashboard numbers for same range (tested).* ⏳ *2026-10-20: incident report data layer (facts, hypotheses, entities with graded identity, response, investigation log, provenance, limitations), tested; printed to PDF by the browser. Executive report, server-side PDF and CSV/XLSX not done.*
 
 **Gate 3:** full analyst journey works via API and tests: alert → incident → comment → status → report → webhook.
 
@@ -86,10 +86,10 @@
 - [ ] **4.4 Command palette and shortcuts.** cmdk, shortcut overlay, G-then-key navigation. *AC: all primary actions reachable by keyboard.*
 - [ ] **4.5 Auth screens and onboarding.** Login/register, invite acceptance, checklist for empty orgs. *AC: no fake zeros on empty orgs.* ⏳ *Login/register done; onboarding checklist replaces zeros for empty orgs; invites missing.*
 - [ ] **4.6 Command Center.** Per spec §7. *AC: every KPI links to the list that produced it.* ⏳ *KPIs link to the filtered flow list; volume chart, verdict mix, top sources/ports, model health; ATT&CK strip and needs-attention list missing (no alerts yet).*
-- [ ] **4.7 Alerts + Alert detail.** Queue, drawer, bulk actions, keyboard triage, "Why this fired", verdicts. *AC: 25 alerts triaged keyboard-only.* ⏳ *Alerts queue (URL filters, J/K/Enter), drawer with why-it-fired, triage status and verdicts done; bulk actions, saved views, E/I/F shortcuts and incident creation from an alert missing.*
+- [ ] **4.7 Alerts + Alert detail.** Queue, drawer, bulk actions, keyboard triage, "Why this fired", verdicts. *AC: 25 alerts triaged keyboard-only.* ⏳ *Alerts queue (URL filters, J/K/Enter), drawer with why-it-fired, triage status and verdicts done; saved views and E/I/F shortcuts missing. 2026-10-20: drawer separates observed / inferred / unknown, shows graded attribution and provenance; incident creation from one alert or a selection added. Keyboard-only triage of 25 alerts not verified.*
 - [ ] **4.8 Live monitor.** SSE list (virtualized), source badges, pause, filters, optional sound. *AC: 1,000 rows/min without jank.*
-- [ ] **4.9 Incidents.** Board (dnd-kit) + table; detail with timeline, evidence, entities graph, report. *AC: drag and drop works with mouse and keyboard; rollback on failure.*
-- [ ] **4.10 Investigate.** Entity pages and GraphView. *AC: 500-node graph at 60 fps pan/zoom.*
+- [ ] **4.9 Incidents.** Board (dnd-kit) + table; detail with timeline, evidence, entities graph, report. *AC: drag and drop works with mouse and keyboard; rollback on failure.* ⏳ *2026-10-20: table + board (click to open), incident page with overview, attack timeline (facts vs hypotheses), investigation log, response tab and printable report, checked in a browser at desktop and 375 px. Drag and drop and the entities graph not done.*
+- [ ] **4.10 Investigate.** Entity pages and GraphView. *AC: 500-node graph at 60 fps pan/zoom.* ⏳ *2026-10-20: asset pages (observed services, labelled device estimate, identity, activity, peers, alerts, notes). GraphView not done.*
 - [ ] **4.11 Detections, Models lab, Sources, Integrations.** Per spec §7. *AC: model activation and rule test flows work end-to-end.* ⏳ *Models lab and Rules page (list, enable, JSON edit, test) done; severity map / MITRE tabs, sources and integrations not built.*
 - [ ] **4.12 Reports, Team, Audit, Settings.** Including API keys UI, sessions, MFA placeholder (stretch). *AC: all settings genuinely persist.* ⏳ *Team, audit, settings (profile, preferences persisted server-side, password, sessions, export, delete) done; reports, API keys missing.*
 - [ ] **4.13 i18n.** EN/FR/HI for all UI chrome; lint rule against hard-coded strings. *AC: switching language translates every static string.*
@@ -128,6 +128,23 @@
 
 ---
 
+## Supplementary objectives (owner brief, 2026-10-20)
+
+Added on top of the phases above, not replacing them. Ticked only when verified.
+
+- [x] **A1 Evidence-based investigation.** Alert analysis separates *observed* (stored data + source), *inferred* (model, rule, heuristic) and *unknown*, each with its basis. ✅ *API test + component test; checked in the browser on the demo scenario.*
+- [x] **A2 VPN and attribution.** Observed IP and its limits always shown; identity only from imported VPN / DHCP / auth / EDR / directory / manual records, with source, validity window, graded confidence, ambiguity flag and caveats; "unknown" plus what would help otherwise. ✅ *CSV import of identity records; live connectors to VPN, AD or EDR are not built (see Decisions).*
+- [ ] **A3 Device and user context.** Device type estimated from accepted services, always labelled low-confidence with its basis; "unknown" otherwise. ⏳ *Done for IP assets; no OS fingerprinting or user context beyond imported identity records.*
+- [x] **A4 Analyst path.** Alert → analysis → triage verdict → incident (correlated, from alerts or manual) → attack timeline → investigation log → report, persisted and audited. ✅ *API tests + browser walkthrough on the demo scenario.*
+- [x] **A5 Visual identity.** Light ivory theme by default, dark high-contrast text, pine / ocean / plum accents, severity colours reserved for alerts, short purposeful motion that respects `prefers-reduced-motion`; dark theme kept. ✅ *Token pairs computed ≥ 4.5:1; checked at desktop and 375 px. Automated contrast tests (4.1) still missing.*
+- [x] **A6 Scenario correlation.** See 3.2; timeline in event time with facts and hypotheses (basis + limits); MITRE labelled "suggested", never proof. ✅
+- [x] **A7 Detection validation.** Reproducible runs of a model version or a rule version on a labelled dataset: per-class precision / recall / F1 / support, FP and FN samples (with SHAP for models), dataset SHA-256, training-overlap check, author and time, immutable records, notes on what the score does not prove. ✅ *API tests; browser run on the demo data. No lab or second public dataset imported yet, so no independent benchmark exists (2.7).*
+- [ ] **A8 Asset inventory over time.** ⏳ *Inventory, first/last seen, activity per time bucket, peers, notes. No history of changes per asset (only the current snapshot).*
+- [x] **A9 Prudent response.** Recommendations, simulations and analyst-reported actions are three separate things in the API, UI and report; Sentinel never claims to block, isolate or change a firewall. ✅ *Executed actions require a real integration that does not exist yet.*
+- [ ] **A10 Traceability.** ⏳ *Audit log covers imports, detections, triage, incident changes, simulations, reports, identity imports, validation runs and asset edits; alert detail shows its provenance and history; secrets are never logged. A single cross-object timeline view (ingest → detection → triage) is not built; ingestion is file import only.*
+
+---
+
 ## Decisions log (append as you go)
 
 | Date | Decision | Reason |
@@ -155,3 +172,12 @@
 | 2026-10-20 | Rule hits carry deterministic hit keys stored on the alert, so re-running detections never double-counts. | "Run detections" and re-imports must be safe to repeat. |
 | 2026-10-20 | Starter rules are seeded per org on first use and cannot be deleted (disable instead); custom rules can. | Re-seeding would otherwise resurrect deleted starters. |
 | 2026-10-20 | Analyst statuses (acknowledged, dismissed, resolved) are never overwritten by new evidence; a FP/benign verdict dismisses, a TP verdict acknowledges. | The analyst's decision wins; new evidence still increments `count`. |
+| 2026-10-20 | Default theme is light ivory with natural accents (pine / ocean / plum); legacy accents map to pine; dark theme kept as an option. | Owner brief (2026-10-20). **Conflict with DESIGN_SYSTEM.md (dark-first, violet / cyan / emerald), flagged; DESIGN_SYSTEM.md updated.** |
+| 2026-10-20 | Identity comes only from imported records (CSV: ip, start, end, source, username / hostname / mac). Confidence: high only for VPN / auth / EDR records covering the whole activity window, medium when partial or device-level (DHCP), low for manual or non-overlapping records. | An IP never proves identity; live VPN / AD / EDR connectors need the owner's systems and consent. |
+| 2026-10-20 | Identity data (usernames, hostnames) is readable by Analysts and above (`identity:read`); imports and deletions by Owners / Admins (`identity:manage`). Viewers see "restricted", also in reports they generate. | Personal data, need-to-know. |
+| 2026-10-20 | Correlation: alerts from the same source, each within the org's `correlationWindowMinutes` (default 15) of the previous one, form one incident; severity +1 when two or more kill-chain stages are involved. | Simple, explainable, testable; labelled a hypothesis in the UI. |
+| 2026-10-20 | Device type is computed on read from accepted services (≥ 3 flows per port) and always labelled a low-confidence estimate. | Heuristic changes apply everywhere at once; ports are conventions, not proof. |
+| 2026-10-20 | Incident events are append-only (`incident_events`) and separate from the audit log; the attack timeline uses event time, the investigation log wall-clock time. | Two different questions: what happened on the network vs what the team did. |
+| 2026-10-20 | Validation runs are immutable records; rule runs score flows inside the windows that fired (an approximation, stated in the run). | Traceable results; rules fire on groups, labels exist per flow. |
+| 2026-10-20 | Incident report rendered by the browser (print / save as PDF) instead of a server-side PDF. | No new dependency; server-side PDF stays open in 3.7. |
+| 2026-10-20 | Demo data is synthetic, generated by a deterministic script (`npm run demo:data`), imported with `--demo`, and validation runs on DEMO datasets say the score proves nothing. | Honest demo without downloading or fabricating "real" captures. |

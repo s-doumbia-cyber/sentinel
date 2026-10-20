@@ -7,10 +7,12 @@ verdict, and gives analysts a place to investigate. It is built to be honest abo
 every verdict comes from a model you can inspect (never from a dataset label), every record shows
 where it came from, and every model ships with per-class results and its known limits.
 
-> **Status (October 2026): early, working foundation.** CSV import, real ML scoring with SHAP
-> explanations, detection rules, alerts with triage, model cards, multi-tenant orgs, secure auth,
-> RBAC, audit log and a rebuilt UI work end to end and are tested. Live capture, correlation into
-> incidents, integrations and reports are **not built yet**; see [ROADMAP.md](ROADMAP.md).
+> **Status (October 2026): working foundation.** CSV import, real ML scoring with SHAP explanations,
+> detection rules, alerts with evidence-based analysis, correlation into incidents, an attack timeline,
+> response guidance (recommend and simulate only), incident reports, an asset inventory, identity
+> attribution from imported records, validation runs, multi-tenant orgs, secure auth, RBAC and an
+> audit log work end to end and are tested. Live capture, integrations (webhooks, VPN / AD / EDR
+> connectors) and any enforcement are **not built**; see [ROADMAP.md](ROADMAP.md).
 
 ## What works today
 
@@ -23,7 +25,13 @@ where it came from, and every model ships with per-class results and its known l
 | Explanations | Top-5 SHAP contributions per malicious or low-confidence verdict, class probabilities, confidence with a needs-review threshold, MITRE ATT&CK technique marked "suggested". |
 | Models | Registry of trained versions with model card, macro-F1, per-class precision/recall/F1/support, holdout on unseen source IPs, library-version checks, per-org activation (Owner/Admin). |
 | Evaluation | Live comparison of verdicts with dataset labels in your org (confusion matrix, macro-F1), with a warning when the data was also used for training. |
-| Investigation | Flow explorer with URL filters; incidents (table, board, notes, assignee, status). |
+| Evidence | Each alert separates what was **observed** (stored data and its file), what was **inferred** (model, rule or heuristic, with its basis) and what is **unknown**, and shows its provenance (dataset SHA-256, model and rule versions) and change history. |
+| Incidents | Alerts from the same source within the org's correlation window (default 15 min) are grouped into one incident, labelled a hypothesis; open incidents from one or several alerts or from scratch. Incident page: attack timeline in event time (facts vs hypotheses, MITRE marked "suggested"), append-only investigation log (who did what, when), status / priority / assignee, printable report. |
+| Response | Per-class checks and containment ideas, blocklist **simulations** (iptables, nftables, CSV) that are never applied, and actions *reported* by analysts. Sentinel cannot block, isolate or change a firewall, and says so. |
+| Assets | Inventory of addresses seen in flows: services accepted, peers, activity over time, alerts, notes. Device type is a low-confidence estimate from ports, labelled as such. |
+| Identity | Import VPN / DHCP / auth / EDR / directory records (CSV). Attribution shows each matching record with its source, validity window and graded confidence, flags ambiguity, and says "unknown" (and what would help) when nothing matches. An IP is never presented as proof of identity. |
+| Validation | Test a model version or a rule version on a labelled dataset: per-class precision / recall / F1 / support, false-positive and false-negative samples (with SHAP for models), dataset hash, training-overlap check, author and time. Results are stored and immutable. |
+| Investigation | Flow explorer with URL filters; asset links from flows and alerts. |
 | Organisations | Multi-tenant orgs, roles Owner / Admin / Analyst / Viewer enforced server-side, append-only audit log, sessions, data export, account deletion. |
 
 ## Architecture
@@ -62,6 +70,19 @@ npm.cmd run dev                 # API on http://localhost:4000 and web on http:/
 Open http://localhost:5173 (use `localhost`, not `127.0.0.1`: the CSRF origin check uses the
 allow-list in `CORS_ORIGINS`). Create a workspace, import `data/samples/cicids2017-friday-ddos-sample.csv`
 on the Datasets page, activate the model on the Models page, and the flows get scored.
+
+### Demo scenario (synthetic, tagged DEMO)
+
+```powershell
+npm.cmd run demo:data
+npm.cmd run import:csv -- --org <your-demo-org-slug> --demo "data/demo/demo-scenario-flows.csv"
+```
+
+Then, in the UI: **Alerts → Run detections**, **Identity sources → import `data/demo/demo-identity.csv`**,
+and follow the path *Alerts → SSH alert → Incident → Attack timeline → Response → Report*, then
+*Assets → 10.0.0.20* and *Validation → R-BRUTEFORCE-SSH-01 on the demo dataset*. The scenario
+(benign office traffic, a port scan, then an SSH brute force from `10.0.0.66`) is synthetic and
+explained in [data/demo/README.md](data/demo/README.md). Use an organisation created for the demo.
 
 Check the whole chain from the command line (creates and then deletes a throwaway account; use a
 development database):
@@ -106,15 +127,18 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 | `npm run import:csv -- --org <slug> "<file.csv>"` | import a large CSV from disk (`--demo` tags it DEMO) |
 | `npm run migrate:legacy [-- --apply]` | migrate data from the old backend |
 | `npm run smoke [-- http://host:port]` | end-to-end check against a running stack |
+| `npm run demo:data` | write the synthetic DEMO scenario files to `data/demo/` (no database access) |
 
 ## Testing
 
-- `packages/shared`: 65 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature schema drift).
-- `apps/api`: 80 tests (18 rule-evaluator unit tests; the rest are integration tests on a real in-memory MongoDB, including 13 for alerts and rules): auth (rotation, reuse detection,
-  logout-all, CSRF, rate limit, legacy hash upgrade), tenant isolation (cross-org → 404, unscoped
-  queries rejected), RBAC role × route matrix, audit per mutation, import, scoring, stats, evaluation,
-  migration.
-- `apps/web`: API client (in-memory token, single-flight refresh, error envelope) and rule descriptions.
+- `packages/shared`: 97 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
+  schema drift, rules DSL, attribution grading, device estimates, knowledge base, blocklist syntax).
+- `apps/api`: 102 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
+  in-memory MongoDB): auth (rotation, reuse detection, logout-all, CSRF, rate limit, legacy hash
+  upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import, scoring, stats,
+  evaluation, migration, alerts and rules, correlation, incident events, response simulations,
+  reports, assets, identity attribution, validation runs.
+- `apps/web`: API client, rule descriptions, evidence and attribution panels (Testing Library).
 - `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version
   mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
 
@@ -126,8 +150,13 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
   DDoS, one attacker IP): macro-F1 1.00 on a random split but 0.52 on unseen source IPs. It says
   nothing about other attacks or your network. Train on the full dataset for a broader benchmark,
   and remember CICIDS2017 has known label errors and does not transfer to other networks.
-- No alert-to-incident correlation, SSE stream, integrations, reports, invitations, MFA, i18n,
-  command palette or drift monitoring yet.
+- No SSE stream, integrations (webhooks, Slack, VPN / AD / EDR connectors), executive reports,
+  invitations, MFA, i18n, command palette or drift monitoring yet.
+- Identity attribution only knows what you import: no live connector to a VPN gateway, directory or
+  EDR. Correlation groups alerts by source address and time; it is a hypothesis, not attribution.
+- Response is advisory: Sentinel generates and logs blocklist simulations but applies nothing.
+- The demo scenario is synthetic. Rules catch it by construction; the bundled model (trained on
+  BENIGN vs DDoS only) scored the SSH brute-force flows as benign in our check. Neither says anything about performance on a real network.
 - Rule windows are evaluated per import (or on "Run detections") over stored flows, not in real time.
 - Background jobs (import, scoring) run in-process: an API restart interrupts them (interrupted
   imports are marked failed at startup; pending flows can be re-scored with "Score pending flows").

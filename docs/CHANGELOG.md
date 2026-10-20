@@ -50,5 +50,25 @@ All notable changes. Dates are UTC.
 - UI: Alerts page (filters in the URL, drawer with why-it-fired and triage) and Rules page (describe,
   enable, edit JSON, test); Active alerts KPI on the Command Center.
 
+### Investigation, attribution, response and validation (owner brief, 2026-10-20)
+- Alert detail separates observed / inferred / unknown statements with their basis, and shows
+  provenance (dataset SHA-256, model and rule versions) and change history.
+- Asset inventory rebuilt from flows after each import: services, peers, activity, alerts, notes and
+  tags; device type as a labelled low-confidence estimate. Rare ports are grouped (often scans).
+- Identity sources: CSV import of VPN / DHCP / auth / EDR / directory / manual records with hash and
+  rejected-row samples; graded attribution (source, window, confidence, ambiguity, caveats, "unknown"
+  plus what would help). Analysts and above can read identity data; Owners / Admins import it.
+- Correlation of alerts into incidents (same source, org window, kill-chain escalation), incidents from
+  selected alerts, append-only incident events mirrored in the audit log, attack timeline (facts vs
+  hypotheses), knowledge base, blocklist simulations (never applied), analyst-reported actions,
+  printable incident report.
+- Validation runs for model and rule versions with per-class metrics, FP / FN samples, dataset hash,
+  training-overlap check and notes (DEMO datasets are called out as proving nothing).
+- New light ivory identity (pine / ocean / plum accents, dark theme kept), purposeful motion that
+  respects reduced motion; mobile "More" menu so every page is reachable at 375 px.
+- Synthetic DEMO scenario generator (`npm run demo:data`) with matching identity records.
+- Fixed in browser review: evidence plural, local-vs-UTC wording, a stray tab scrollbar and grid
+  overflow at phone width.
+
 ### Security
 - `csv-parse` 7 and `react-router` 7: `npm audit --omit=dev` reports no vulnerabilities.
