@@ -76,6 +76,7 @@ All notable changes. Dates are UTC.
   binaries and a failure report artefact, Docker build; concurrency cancels superseded runs.
 - Minimum Node raised to 22 (Node 20 is end-of-life): `engines`, Docker base images, docs.
 - First GitHub run green on all five jobs; runners pinned to `ubuntu-24.04` before `ubuntu-latest` moves to Ubuntu 26.
+- CI green on a pull request (#1): roadmap 0.3 done.
 
 ### Context over time, traceability and a real demo workspace
 - Asset history (`asset_events`, append-only): first observed, new or vanished services (ignoring
