@@ -19,7 +19,10 @@ registry refuses a model whose scikit-learn minor version differs from the runti
 
 ## Training on the full CICIDS2017 dataset
 
-Copy the MachineLearningCVE day files into `data/cicids2017/` (git-ignored), then:
+Copy the day files into `data/cicids2017/` (git-ignored), or keep them where they are and pass
+`--csv "<folder>/*.csv"`. Both the MachineLearningCVE and the TrafficLabelling (with IPs) versions
+train; only the TrafficLabelling version can also be imported into Sentinel as flows. A checked run
+on the full download is described in `docs/WINDOWS_GUIDE.md` §8. Then:
 
 ```bash
 services/ml/.venv/Scripts/python -m sentinel_ml.train --config services/ml/configs/cicids-full.example.yaml   # Windows

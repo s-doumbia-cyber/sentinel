@@ -139,7 +139,48 @@ npm.cmd run test:e2e            # browser tests on their own throwaway stack (po
 The test suites never use your database: unit and API tests run on an in-memory MongoDB, and the
 e2e suite starts its own API with `.env` loading disabled.
 
-## 8. Docker (optional)
+## 8. Your own CICIDS2017 download
+
+Checked on 2026-10-20 with the eight `*.pcap_ISCX.csv` day files (the *GeneratedLabelledFlows /
+TrafficLabelling* version, about 1.2 GB, 3.1 million rows) kept in `C:\Users\<you>\Downloads\Traffic-DataSet`,
+on an isolated database. That version has source / destination IPs and timestamps, so Sentinel can
+import it as flows; the *MachineLearningCVE* version (no IPs) can train a model but cannot be imported.
+Nothing needs copying into the repository.
+
+**Train the benchmark model** (about 5 minutes on a 16-thread laptop with 32 GB RAM):
+
+```powershell
+services\ml\.venv\Scripts\python.exe -m sentinel_ml.train --config services/ml/configs/cicids-full.example.yaml --csv "C:\Users\<you>\Downloads\Traffic-DataSet\*.csv"
+```
+
+The run caps large classes at 50,000 rows, drops 601,648 duplicate rows and the 288,602 empty rows
+of the Thursday web-attacks file, and writes `services/ml/artifacts/cicids-bench-<date>/` with its
+model card. Result of the checked run: macro-F1 0.896 on its test split; WebAttack 0.69 and XSS 0.53;
+Heartbleed, Infiltration and SQL injection have fewer than 30 test rows (marked unstable); on source
+IPs never seen in training, 2.7 % of benign flows were flagged. Restart `npm.cmd run ml:serve` so the
+Models page lists it, read the model card, then activate it (Owner / Admin).
+
+**Import the flows** into a workspace (use a dedicated database or organisation; the slug is shown
+in Settings):
+
+```powershell
+Get-ChildItem "C:\Users\<you>\Downloads\Traffic-DataSet\*.csv" | ForEach-Object { npm.cmd run import:csv -- --org <your-org-slug> $_.FullName }
+```
+
+Measured: about 2,100 rows per second (286,467 rows in 136 s), so roughly 25 minutes for the eight
+files; about 1 GB of MongoDB storage. Empty and malformed rows are rejected and counted, never
+guessed. A command-line import does not start detection: then open **Alerts → Run detections**
+and **Models → Score pending flows**. Scoring with explanations ran at about 300 flows per second
+(456,833 flows in about 25 minutes), so expect about 2.5 hours for all 2.83 million flows.
+
+**What to expect.** The model was trained on these same files, so the per-flow evaluation looks
+excellent (PortScan 0.999) but is not an independent estimate. Alerts are noisier: in the check,
+about 1 % of benign flows were classified as attacks, which produced hundreds of model alerts and
+dozens of correlated incidents involving CDN and Google addresses. The starter rule
+`R-SLOWHTTP-01` also fired on long benign HTTPS sessions. Use **Validation** to measure each rule
+and model, and treat CICIDS2017 as a benchmark, not as your network.
+
+## 9. Docker (optional)
 
 ```powershell
 Copy-Item .env.example .env      # set JWT_ACCESS_SECRET and ML_SERVICE_TOKEN
@@ -150,7 +191,7 @@ docker compose up --build        # http://localhost:8080
 This path was verified earlier on 2026-10-20 (`npm run smoke` passed against it). It could not be
 re-run when this guide was last checked because Docker Desktop was not running on the machine.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
