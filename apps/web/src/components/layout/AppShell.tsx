@@ -1,5 +1,6 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import {
+  Activity,
   Bell,
   Building2,
   ChevronsUpDown,
@@ -69,6 +70,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { to: "/identity", label: "Identity sources", icon: Fingerprint, requires: "identity:read" },
       { to: "/team", label: "Team", icon: Users },
       { to: "/audit", label: "Audit log", icon: ScrollText, requires: "audit:read" },
+      { to: "/system", label: "System", icon: Activity, requires: "jobs:read" },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },

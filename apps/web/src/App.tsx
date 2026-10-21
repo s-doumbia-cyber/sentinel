@@ -22,6 +22,7 @@ const IdentitySourcesPage = lazy(() => import("@/features/identity/IdentitySourc
 const ValidationPage = lazy(() => import("@/features/validation/ValidationPage").then((m) => ({ default: m.ValidationPage })));
 const TeamPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.TeamPage })));
 const AuditPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.AuditPage })));
+const SystemPage = lazy(() => import("@/features/system/SystemPage").then((m) => ({ default: m.SystemPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 function PageFallback() {
@@ -105,6 +106,14 @@ export default function App() {
             el: (
               <RequireRole action="audit:read">
                 <AuditPage />
+              </RequireRole>
+            ),
+          },
+          {
+            path: "/system",
+            el: (
+              <RequireRole action="jobs:read">
+                <SystemPage />
               </RequireRole>
             ),
           },

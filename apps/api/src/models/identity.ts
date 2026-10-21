@@ -85,6 +85,15 @@ const orgSchema = new Schema(
         ],
         default: [],
       },
+      /** Flows and alerts stored longer than this many days are purged; null keeps everything. */
+      retentionDays: { type: Number, default: null, min: 1, max: 3650 },
+      lastRetentionRun: {
+        at: { type: Date, default: null },
+        cutoff: { type: Date, default: null },
+        flowsDeleted: { type: Number, default: 0 },
+        alertsDeleted: { type: Number, default: 0 },
+        alertsKept: { type: Number, default: 0 },
+      },
       /** Active model version per feature schema, chosen by an Owner/Admin of this org. */
       activeModels: { type: Map, of: String, default: () => new Map() },
     },

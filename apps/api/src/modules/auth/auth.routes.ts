@@ -62,6 +62,17 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     },
   });
   const csrf = requireCsrfHeader(config);
+  // Password checks behind a session (a stolen access token must not allow unlimited guessing).
+  const passwordLimiter = rateLimit({
+    windowMs: options.authRateLimit.windowMs,
+    limit: options.authRateLimit.max,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => `pw|${String(req.auth?.userId ?? req.ip)}`,
+    handler: (req, res) => {
+      res.status(429).json({ error: { code: "RATE_LIMITED", message: "Too many attempts. Try again later.", requestId: req.id } });
+    },
+  });
 
   r.route(
     "post",
@@ -149,6 +160,7 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     "post",
     "/auth/change-password",
     "self",
+    passwordLimiter,
     validate("body", changePasswordBodySchema),
     ah(async (req, res) => {
       const { userId, sessionId } = authOf(req);

@@ -8,6 +8,7 @@ import type { AppConfig } from "../../config/index.js";
 import { AppError } from "../../lib/errors.js";
 import { ah, authOf, parsed, validate } from "../../lib/http.js";
 import { PolicyRouter } from "../../lib/routes.js";
+import { MULTIPART_LIMITS, assertTextFile } from "../../lib/uploads.js";
 import { Dataset, Flow, type DatasetDoc } from "../../models/tenant.js";
 import { auditFromRequest } from "../audit/audit.service.js";
 import type { Scheduler } from "../jobs/job.handlers.js";
@@ -58,7 +59,7 @@ export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): Policy
       // Generated name: the client's filename never touches the filesystem path.
       filename: (_req, _file, cb) => cb(null, `sentinel-upload-${randomBytes(12).toString("hex")}.csv`),
     }),
-    limits: { fileSize: config.uploadMaxBytes, files: 1, fields: 5 },
+    limits: { ...MULTIPART_LIMITS, fileSize: config.uploadMaxBytes },
     fileFilter: (_req, file, cb) => {
       if (path.extname(file.originalname).toLowerCase() !== ".csv") {
         cb(new AppError("UNSUPPORTED_MEDIA", 415, "Only .csv files are accepted"));
@@ -105,6 +106,7 @@ export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): Policy
         const body = importBody.safeParse(req.body ?? {});
         if (!body.success) throw AppError.validation("Unsupported sourceType: only CICIDS2017 CSV exports are supported");
         // Fail fast on an unsupported file; the job checks the header again before reading rows.
+        await assertTextFile(file.path);
         await checkCsvHeader(file.path, SCHEMA_FOR_SOURCE_TYPE[body.data.sourceType]);
         const input = {
           orgId: ctx.orgId,

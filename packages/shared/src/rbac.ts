@@ -32,6 +32,8 @@ export const ACTIONS = [
   "identity:manage",
   "jobs:read",
   "jobs:manage",
+  "retention:read",
+  "retention:manage",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -69,6 +71,9 @@ export const PERMISSIONS: Record<Action, readonly Role[]> = {
   // Background jobs and their dead letters: operational detail for administrators.
   "jobs:read": ADMINS,
   "jobs:manage": ADMINS,
+  // Purging data cannot be undone: only Owners set or run retention; Admins can preview it.
+  "retention:read": ADMINS,
+  "retention:manage": ["Owner"],
 };
 
 export function can(role: Role, action: Action): boolean {

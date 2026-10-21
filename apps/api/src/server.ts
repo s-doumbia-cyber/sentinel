@@ -4,6 +4,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config/index.js";
 import { createLogger } from "./lib/logger.js";
 import { Dataset } from "./models/tenant.js";
+import { startRetentionSweep } from "./modules/retention/retention.service.js";
 
 async function main() {
   const config = loadConfig();
@@ -31,7 +32,8 @@ async function main() {
     if (stale.modifiedCount) logger.warn({ count: stale.modifiedCount }, "Marked interrupted imports as failed");
   }
 
-  const { app, jobs } = createApp({ config, logger });
+  const { app, jobs, schedule } = createApp({ config, logger });
+  const stopSweep = startRetentionSweep(schedule, config.retentionSweepHours, logger);
   if (config.jobs.runWorkers) await jobs.start();
   logger.info({ queue: jobs.mode, workers: config.jobs.runWorkers }, jobs.mode === "redis" ? "Durable job queue (BullMQ) ready" : "Jobs run in-process (set REDIS_URL for durable queues)");
   const server = app.listen(config.port, () => logger.info({ port: config.port }, "Sentinel API listening"));
@@ -40,6 +42,7 @@ async function main() {
 
   const shutdown = (signal: string) => {
     logger.info({ signal }, "Shutting down");
+    stopSweep();
     server.close(() => {
       // BullMQ workers finish their current job (or release it for another worker) before closing.
       void jobs

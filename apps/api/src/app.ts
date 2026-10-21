@@ -30,6 +30,7 @@ import { detectionSettingsRoutes } from "./modules/rules/detection-settings.rout
 import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { recordDeadLetter, registerJobHandlers, type Scheduler } from "./modules/jobs/job.handlers.js";
 import { jobRoutes } from "./modules/jobs/job.routes.js";
+import { retentionRoutes } from "./modules/retention/retention.routes.js";
 import { inviteRoutes } from "./modules/members/invite.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
@@ -103,6 +104,11 @@ export function createApp(options: AppOptions): SentinelApp {
       allowedHeaders: ["Content-Type", "Authorization", "X-Org-Id", "X-Request-Id", "X-Sentinel-CSRF"],
     }),
   );
+  // API answers carry tenant data and tokens: never stored by browsers or shared caches (ASVS 8.2.1).
+  app.use(API_PREFIX, (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(
@@ -165,6 +171,7 @@ export function createApp(options: AppOptions): SentinelApp {
     identityRoutes(config),
     validationRoutes(config, { ml }),
     jobRoutes(config, { queue: jobs }),
+    retentionRoutes(config, { schedule }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
 

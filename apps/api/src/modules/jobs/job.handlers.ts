@@ -9,6 +9,7 @@ import { Dataset, Flow } from "../../models/tenant.js";
 import { refreshAssets } from "../assets/asset.service.js";
 import { SCHEMA_FOR_SOURCE_TYPE, checkCsvHeader, runCsvImport, type ImportInput } from "../datasets/csv.importer.js";
 import type { CorrelationService } from "../incidents/correlation.service.js";
+import { runRetention } from "../retention/retention.service.js";
 import type { RuleService } from "../rules/rule.service.js";
 import type { ScoringService } from "../scoring/scoring.service.js";
 
@@ -35,7 +36,9 @@ export interface Scheduler {
   score(orgId: Types.ObjectId): Promise<void>;
   detect(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<void>;
   assets(orgId: Types.ObjectId): Promise<void>;
-  busy(kind: "import" | "score" | "detect", orgId: Types.ObjectId): Promise<boolean>;
+  /** `jobId` deduplicates sweeps (Redis keeps one job per id). */
+  retention(orgId: Types.ObjectId, actorId: Types.ObjectId | null, jobId?: string): Promise<string>;
+  busy(kind: "import" | "score" | "detect" | "retention", orgId: Types.ObjectId): Promise<boolean>;
 }
 
 export interface JobHandlerDeps {
@@ -131,6 +134,8 @@ export function registerJobHandlers(deps: JobHandlerDeps): Scheduler {
     async assets(orgId) {
       await queue.enqueue("assets", { orgId: String(orgId) });
     },
+    retention: (orgId, actorId, jobId) =>
+      queue.enqueue("retention", { orgId: String(orgId), actorId: actorId ? String(actorId) : null }, jobId ? { jobId } : undefined),
     busy: (kind, orgId) => queue.busy(kind, String(orgId)),
   };
 
@@ -153,6 +158,13 @@ export function registerJobHandlers(deps: JobHandlerDeps): Scheduler {
 
   queue.register("assets", async (p) => {
     await refreshAssets(oid(p.orgId), deps.logger);
+  });
+
+  queue.register("retention", async (p) => {
+    const orgId = oid(p.orgId);
+    const result = await runRetention(orgId, { actorId: p.actorId ? oid(p.actorId) : null, logger: deps.logger });
+    // The inventory is rebuilt from flows: purged addresses become inactive.
+    if (result.flowsDeleted) await schedule.assets(orgId);
   });
 
   return schedule;

@@ -4,6 +4,15 @@ All notable changes. Dates are UTC.
 
 ## 2026-10-21
 
+### Retention, system page and security pass (roadmap 5.3, 5.5)
+- Per-org data retention (off by default, Owner only) with a dry-run preview, an audited purge job and a
+  daily sweep; alerts linked to incidents, incidents, the audit log and import records are kept.
+- System page (Owners / Admins): service health, failed background jobs with retry, retention.
+- `docs/SECURITY_ASVS.md`: OWASP ASVS L1 checklist with evidence and open gaps.
+- Hardening: `Cache-Control: no-store` on API responses, upload content sniffing (binary and non-UTF-8
+  files refused) and multipart limits, password-change rate limit, MFA material redacted from logs,
+  extra nginx headers (`object-src 'none'`, Permissions-Policy, COOP).
+
 ### Two-factor authentication (roadmap 5.2)
 - TOTP enrolment from Settings → Security (password re-check, QR code or manual key, first code confirms),
   10 one-time recovery codes shown once, disable and regenerate behind the password.
