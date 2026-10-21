@@ -11,6 +11,18 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### Re-apply alert noise settings to existing alerts
+- `POST /detection/reapply` (Owner / Admin, background job, 202) rebuilds an organisation's alerts and
+  incidents from the stored verdicts and rule hits under the current minimum confidence, allowlist, review
+  threshold and rules; `GET /detection/reapply` returns whether it runs, what a run would rebuild and keep,
+  and the last outcome. Flows and verdicts are untouched. Alerts an analyst triaged (verdict or analyst
+  status), incidents a person created or worked on (status, assignee, notes, actions, report) and every alert
+  inside such an incident are kept as they are and their evidence is not counted twice; everything else is
+  rebuilt. Idempotent; refused while scoring or another rebuild runs. Audited (`detection.reapply`,
+  `detection.reapply_done` / `_failed`). Settings → Detection gets a confirm dialog that states the counts.
+  Tests on an in-memory MongoDB (rebuild, idempotence, analyst work kept, roles, org isolation, locking) and a
+  component test.
+
 ### Feature glossary (roadmap 1.6)
 - `packages/shared/src/featureGlossary.json`: a plain-language label, unit and one-sentence meaning for
   each of the 44 `cicids2017-v1` features. The "why" bars in the alert and flow drawers now read

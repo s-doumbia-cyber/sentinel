@@ -7,6 +7,7 @@ import type {
   AssetDetail,
   AssetEvent,
   DetectionSettings,
+  ReapplyStatus,
   IdentityLookup,
   IdentityRecord,
   IdentityImport,
@@ -275,6 +276,16 @@ export function useIdentityLookup(q: string) {
 export function useDetectionSettings() {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "detectionSettings"], queryFn: () => api<DetectionSettings>("/detection/settings") });
+}
+
+/** Polls every 1.5 s while a rebuild is running so the card shows when it finishes. */
+export function useReapplyStatus() {
+  const org = useOrgKey();
+  return useQuery({
+    queryKey: [org, "reapplyStatus"],
+    queryFn: () => api<ReapplyStatus>("/detection/reapply"),
+    refetchInterval: (query) => (query.state.data?.running ? 1500 : false),
+  });
 }
 
 export function useIdentityImports(enabled = true) {

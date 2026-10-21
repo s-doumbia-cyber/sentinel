@@ -165,8 +165,8 @@ export class ScoringService {
    * Folds already-scored malicious flows that never produced an alert (scored
    * before alerting existed, or migrated) into alerts. Idempotent via `alertedAt`.
    */
-  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<number> {
-    const policy = await loadAlertPolicy(orgId);
+  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId, policyOverride?: AlertPolicy): Promise<number> {
+    const policy = policyOverride ?? (await loadAlertPolicy(orgId));
     let created = 0;
     for (;;) {
       const flows = await Flow.find({

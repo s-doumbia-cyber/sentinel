@@ -16,6 +16,8 @@ import { assetRoutes } from "./modules/assets/asset.routes.js";
 import { refreshAssets } from "./modules/assets/asset.service.js";
 import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
+import { AlertRebuildService } from "./modules/alerts/rebuild.service.js";
+import { rebuildRoutes } from "./modules/alerts/rebuild.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { datasetRoutes } from "./modules/datasets/dataset.routes.js";
@@ -77,6 +79,11 @@ export function createApp(options: AppOptions): SentinelApp {
       await scoring.alertUnalerted(orgId, datasetId);
       await correlation.correlate(orgId);
     });
+  };
+
+  const rebuild = new AlertRebuildService(scoring, rules, correlation, logger);
+  const scheduleRebuild = (orgId: Types.ObjectId, actorId: Types.ObjectId) => {
+    jobs.run(`reapply:${String(orgId)}`, () => rebuild.runAudited(orgId, actorId));
   };
 
   app.disable("x-powered-by");
@@ -160,6 +167,7 @@ export function createApp(options: AppOptions): SentinelApp {
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),
     alertRoutes(config),
+    rebuildRoutes(config, { rebuild, scheduleRebuild }),
     ruleRoutes(config, { rules, scheduleDetections }),
     assetRoutes(config, { scheduleAssetRefresh }),
     identityRoutes(config),

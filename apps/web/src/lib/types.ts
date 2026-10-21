@@ -511,6 +511,26 @@ export interface ValidationRun {
   notes: string[];
 }
 
+export interface ReapplyPlan {
+  alertsRebuilt: number;
+  alertsKept: number;
+  incidentsRebuilt: number;
+  incidentsKept: number;
+}
+
+export interface ReapplyStatus {
+  running: boolean;
+  /** What a run would rebuild and what it would leave alone, right now. */
+  preview: ReapplyPlan;
+  last: {
+    at: string;
+    status: "done" | "failed";
+    error?: string;
+    plan?: ReapplyPlan;
+    after?: { alerts: number; incidents: number; suppressedVerdicts: { belowMinConfidence: number; allowlisted: number } };
+  } | null;
+}
+
 export interface DetectionSettings {
   /** 0–1; model verdicts below it never become alerts. 0 = off. */
   modelAlertMinConfidence: number;

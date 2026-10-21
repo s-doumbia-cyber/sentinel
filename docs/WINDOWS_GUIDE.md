@@ -193,7 +193,7 @@ attacker traffic, which the model had scored with low confidence: a threshold tr
 quiet, so check **Validation** before raising it. Kept-out verdicts stay on their flows and are
 counted on the Detection tab. Do not allowlist what you have not checked: in this dataset the
 largest source of false positives, `205.174.x.x`, is also the attackers' public address, so trusting
-it would hide the attacks. Changes apply to evidence processed after saving; existing alerts stay.
+it would hide the attacks. Saved changes apply to evidence processed afterwards; to apply them to alerts that already exist, use **Rebuild alerts with the saved settings** at the bottom of the same tab (Owner / Admin). It deletes and rebuilds only alerts and incidents nobody has worked on, from the verdicts and rule hits already stored; triaged alerts, assigned or commented incidents and every flow verdict stay as they are. It runs in the background and is recorded in the audit log (`detection.reapply`, `detection.reapply_done`). Do not import data while it runs.
 
 The starter rule `R-SLOWHTTP-01` was also tightened after replaying all eight days through the rule
 engine: 161 hits before, 15 after, with the 8 hits on real slow-HTTP attack flows kept. Workspaces
