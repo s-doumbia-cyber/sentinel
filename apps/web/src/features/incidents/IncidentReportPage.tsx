@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Printer } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { ArrowLeft, Download, Printer } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ErrorState, Skeleton } from "@/components/ui/States";
-import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
+import { api, apiDownload, errorMessage, saveBlob } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { IncidentReport } from "@/lib/types";
 
@@ -25,6 +26,8 @@ const iso = (s: string | null | undefined) => (s ? new Date(s).toISOString().rep
  */
 export function IncidentReportPage() {
   const { id = "" } = useParams();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const gen = useMutation({ mutationFn: () => api<IncidentReport>(`/incidents/${id}/report`, { method: "POST" }) });
   const { mutate } = gen;
   const started = useRef(false);
@@ -43,9 +46,28 @@ export function IncidentReportPage() {
           <Link to={`/incidents/${id}`} className="inline-flex items-center gap-1 text-small text-fg-2 hover:text-fg-1">
             <ArrowLeft aria-hidden className="h-4 w-4" /> Back to the incident
           </Link>
-          <Button variant="primary" onClick={() => window.print()} disabled={!r}>
-            <Printer aria-hidden className="h-4 w-4" /> Print or save as PDF
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="primary"
+              loading={saving}
+              disabled={!r}
+              onClick={() => {
+                setSaving(true);
+                apiDownload(`/incidents/${id}/report/pdf`)
+                  .then(({ blob, filename }) => {
+                    saveBlob(blob, filename);
+                    toast.success(`Saved ${filename}`);
+                  })
+                  .catch((e: unknown) => toast.error(`Could not generate the PDF: ${errorMessage(e)}`))
+                  .finally(() => setSaving(false));
+              }}
+            >
+              <Download aria-hidden className="h-4 w-4" /> Download PDF
+            </Button>
+            <Button onClick={() => window.print()} disabled={!r}>
+              <Printer aria-hidden className="h-4 w-4" /> Print this page
+            </Button>
+          </div>
         </div>
         {gen.isPending || gen.isIdle ? (
           <div className="space-y-4">

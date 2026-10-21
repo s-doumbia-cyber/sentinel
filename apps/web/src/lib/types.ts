@@ -519,3 +519,24 @@ export interface DetectionSettings {
   allowlist: { cidr: string; note: string; addedBy: string | null; addedAt: string }[];
   suppressedVerdicts: { belowMinConfidence: number; allowlisted: number };
 }
+
+/** GET /reports/executive: mirrors apps/api/src/modules/reports/executive.service.ts. */
+export interface ExecutiveReport {
+  meta: { reportVersion: number; generatedAt: string; organisation: string; timezone: "UTC"; range: { from: string | null; to: string | null } };
+  headline: string[];
+  flows: Overview;
+  verdicts: { key: string | null; count: number }[];
+  topSources: TopItem[];
+  topPorts: TopItem[];
+  alerts: { byStatus: Record<string, number>; activeBySeverity: Record<string, number>; bySeverity: Record<string, number>; byType: Record<string, number>; total: number };
+  incidents: { total: number; openNow: number; byStatus: Record<string, number>; bySeverity: Record<string, number>; byType: Record<string, number> };
+  triage: { alertsConsidered: number; triaged: number; untriaged: number; meanMinutes: number | null; medianMinutes: number | null; basis: string };
+  evaluation: { evaluatedFlows: number; macroF1: number | null; perClass: { label: string; precision: number | null; recall: number | null; f1: number | null; support: number; predicted: number; unstable: boolean }[]; modelVersions: string[] } | null;
+  provenance: {
+    datasets: { name: string; sourceKind: SourceKind; sha256: string | null; flows: number }[];
+    flowsWithoutDataset: number;
+    models: string[];
+    rules: { key: string; version: number | null }[];
+  };
+  limitations: string[];
+}

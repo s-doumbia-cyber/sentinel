@@ -7,6 +7,7 @@ import {
   FlaskConical,
   LayoutDashboard,
   ListChecks,
+  FileText,
   ListTree,
   ScrollText,
   Settings,
@@ -56,6 +57,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "Manage",
     items: [
       { to: "/identity", label: "Identity sources", icon: Fingerprint, requires: "identity:read", go: "p" },
+      { to: "/reports", label: "Reports", icon: FileText, go: "e" },
       { to: "/team", label: "Team", icon: Users, go: "t" },
       { to: "/audit", label: "Audit log", icon: ScrollText, requires: "audit:read", go: "u" },
       { to: "/settings", label: "Settings", icon: Settings, go: "s" },
