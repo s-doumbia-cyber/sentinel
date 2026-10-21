@@ -16,6 +16,13 @@ split:
   test_size: 0.2
   val_size: 0.2
   seed: 42
+  # Day-wise validation (optional). Whole files (each CICIDS2017 file is one capture day) or the
+  # values of a CSV column are kept out of training and tested on afterwards; the shipped model is
+  # trained without them, so the held-out table in the model card describes it directly.
+  # holdout:
+  #   by: file                       # "file" or a column name such as "Source IP"
+  #   groups: ["*Friday*"]           # names or globs; omit to hold out `fraction` of the groups (seeded)
+  #   fraction: 0.25
 models: [logistic_regression, random_forest, hist_gradient_boosting]
 class_weights: [none, balanced]
 selection:

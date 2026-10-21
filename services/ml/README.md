@@ -38,6 +38,12 @@ services/ml/.venv/bin/python -m sentinel_ml.train --config services/ml/configs/c
 
 - Splits: stratified train / validation / test (seed in the config) plus a group-aware holdout
   by source IP to expose leakage.
+- Optional day-wise validation (`split.holdout` in the config, see `configs/cicids-full.example.yaml`):
+  whole files (capture days) or the values of a CSV column are kept out of training and the shipped
+  model is tested on them. `metrics.json` (`heldOut`) and the model card give per-class precision /
+  recall / F1 / support on the held-out groups, per-group macro-F1, and warnings when a class is
+  absent from the held-out side (no estimate possible) or only appears there (the model cannot know
+  it; those rows are excluded and counted). A holdout pattern that matches nothing is an error.
 - Candidates: logistic regression, random forest, HistGradientBoosting, each with and without
   `class_weight="balanced"`. Selection: best validation macro-F1 among candidates whose recall on
   critical classes (DDoS, Botnet, Heartbleed) reaches the configured floor; ties go to lower latency.

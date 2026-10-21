@@ -80,6 +80,27 @@ def render_model_card(meta: dict, metrics: dict, cfg: dict) -> str:
             lines.append(f"- Classes absent from the group training side: {', '.join(g['classesMissingFromTrain'])}.")
     else:
         lines.append(f"- Not possible: {g['reason']}.")
+    h = metrics.get("heldOut", {"status": "not_configured"})
+    lines += ["", f"### Held-out {h.get('by', 'groups')} (whole groups kept out of training)"]
+    if h["status"] == "not_configured":
+        lines.append("- Not configured (`split.holdout`): every capture day contributed to training, so no day-wise estimate exists.")
+    elif h["status"] == "ok":
+        lines.append(
+            f"- The shipped model was trained without: {', '.join(h['groups'])}. "
+            f"Macro-F1 **{_fmt(h['macroF1'])}** on {h['testRows']} held-out rows (training rows: {h['trainRows']})."
+        )
+        lines += ["", "| Class | Precision | Recall | F1 | Support | Note |", "|---|---|---|---|---|---|"]
+        for c in h["perClass"]:
+            note = "unstable estimate (< 30 held-out rows)" if c["unstable"] else ""
+            lines.append(f"| {c['label']} | {_fmt(c['precision'])} | {_fmt(c['recall'])} | {_fmt(c['f1'])} | {c['support']} | {note} |")
+        if h.get("perGroup"):
+            lines += ["", "| Group | Rows | Macro-F1 (classes present in that group) |", "|---|---|---|"]
+            for pg in h["perGroup"]:
+                lines.append(f"| {pg['group']} | {pg['rows']} | {_fmt(pg['macroF1'])} |")
+    else:
+        lines.append(f"- Not possible: {h.get('reason')}.")
+    for w in h.get("warnings", []):
+        lines.append(f"- **Warning:** {w}")
     lines += [
         "",
         "## 5. Cross-dataset results",

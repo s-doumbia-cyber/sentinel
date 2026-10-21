@@ -32,6 +32,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .data import load_csvs, resolve_paths
+from .holdout import evaluate_holdout, parse_holdout_config, select_holdout_groups
 from .labels import CRITICAL_CLASSES
 from .metrics import evaluate, min_recall
 from .model_card import render_model_card
@@ -108,10 +109,21 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     algorithms = cfg.get("models", list(ALGORITHMS))
     class_weights = cfg.get("class_weights", ["none", "balanced"])
     critical_min = float(cfg.get("selection", {}).get("critical_min_recall", 0.5))
+    holdout_cfg = parse_holdout_config(cfg.get("split", {}).get("holdout"))
     load_feature_schema(schema_id)
 
     paths = resolve_paths(cfg["data"]["csv"], base)
-    X, y, groups, report = load_csvs(paths, schema_id, cfg["data"].get("max_rows_per_class"), seed)
+    X, y, groups, report, hold_values = load_csvs(
+        paths, schema_id, cfg["data"].get("max_rows_per_class"), seed, holdout_by=holdout_cfg["by"] if holdout_cfg else None
+    )
+    held_out = None
+    if holdout_cfg and hold_values is not None:
+        held_groups = select_holdout_groups(hold_values, holdout_cfg["groups"], holdout_cfg["fraction"], seed)
+        in_holdout = hold_values.isin(held_groups)
+        # The shipped model never sees these rows, so the held-out scores describe it directly.
+        held_out = {"X": X[in_holdout].reset_index(drop=True), "y": y[in_holdout].reset_index(drop=True), "groups": hold_values[in_holdout].reset_index(drop=True), "names": held_groups}
+        X, y, groups = X[~in_holdout].reset_index(drop=True), y[~in_holdout].reset_index(drop=True), groups[~in_holdout].reset_index(drop=True)
+        log.info("Holding out %s %s: %d rows kept for testing, %d for training", holdout_cfg["by"], held_groups, len(held_out["y"]), len(y))
     counts = y.value_counts()
     excluded = sorted(counts[counts < MIN_ROWS_PER_CLASS].index.tolist())
     if excluded:
@@ -160,6 +172,12 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     model_classes = [str(c) for c in final.classes_]
     test_metrics = evaluate(final, X_test, y_test, model_classes)
     group_eval = _group_evaluation(X, y, groups, best["algorithm"], best["classWeight"], classes, seed)
+    held_eval = {"status": "not_configured"}
+    if held_out is not None and holdout_cfg is not None:
+        held_eval = evaluate_holdout(
+            final, model_classes, held_out["X"], held_out["y"], held_out["groups"],
+            by=holdout_cfg["by"], held_groups=held_out["names"], train_classes=model_classes, train_rows=len(y),
+        )
 
     now = datetime.now(timezone.utc)
     version = f"{cfg.get('version_prefix', 'model')}-{now.strftime('%Y.%m.%d-%H%M%S')}"
@@ -177,6 +195,7 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
         "test": test_metrics,
         "selection": {"candidates": candidates, "chosen": best, "criticalMinRecall": critical_min, "warning": selection_warning},
         "groupAware": group_eval,
+        "heldOut": held_eval,
         "split": {"train": int(len(y_train)), "validation": int(len(y_val)), "test": int(len(y_test)), "seed": seed},
     }
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -196,6 +215,7 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
             "rows": int(len(y)),
             "classCounts": {str(k): int(v) for k, v in y.value_counts().sort_index().items()},
             "excludedClasses": excluded,
+            "heldOut": None if held_out is None else {"by": holdout_cfg["by"], "groups": held_out["names"], "rows": int(len(held_out["y"]))},
             "description": cfg.get("description", ""),
         },
         "libVersions": env,

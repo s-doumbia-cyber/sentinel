@@ -18,6 +18,7 @@ log = logging.getLogger("sentinel_ml.data")
 
 LABEL_COLUMN = "Label"
 GROUP_COLUMN = "Source IP"
+FILE_GROUP = "file"
 
 
 @dataclass
@@ -70,8 +71,15 @@ def load_csvs(
     schema_id: str,
     max_rows_per_class: int | None = None,
     seed: int = 42,
-) -> tuple[pd.DataFrame, pd.Series, pd.Series, DatasetReport]:
-    """Returns (X, y, groups, report). Unknown labels are dropped and counted, never guessed."""
+    holdout_by: str | None = None,
+) -> tuple[pd.DataFrame, pd.Series, pd.Series, DatasetReport, pd.Series | None]:
+    """Returns (X, y, groups, report, holdout). Unknown labels are dropped and counted, never guessed.
+
+    `groups` is the source IP (leakage check). `holdout` names the group each row
+    belongs to for a whole-group test split: the CSV file name when `holdout_by`
+    is "file" (CICIDS2017 files are capture days), or the value of that column;
+    None when no holdout is configured.
+    """
     features = feature_names(schema_id)
     report = DatasetReport()
     frames = []
@@ -83,8 +91,13 @@ def load_csvs(
             raise ValueError(f"{path.name} lacks required columns for {schema_id}: {missing[:8]}")
         report.files.append({"name": path.name, "sha256": sha256_file(path), "rows": int(len(df))})
         report.rows_read += len(df)
-        keep = features + [LABEL_COLUMN] + ([GROUP_COLUMN] if GROUP_COLUMN in df.columns else [])
-        frames.append(df[keep])
+        if holdout_by and holdout_by != FILE_GROUP and holdout_by not in df.columns:
+            raise ValueError(f"{path.name} has no column {holdout_by!r} to hold out by")
+        extra = [holdout_by] if holdout_by and holdout_by != FILE_GROUP and holdout_by not in (GROUP_COLUMN, LABEL_COLUMN) else []
+        keep = features + [LABEL_COLUMN] + ([GROUP_COLUMN] if GROUP_COLUMN in df.columns else []) + extra
+        part = df[keep].copy()
+        part["_file"] = path.name
+        frames.append(part)
     data = pd.concat(frames, ignore_index=True)
 
     raw_labels = data[LABEL_COLUMN]
@@ -125,5 +138,16 @@ def load_csvs(
         report.rows_capped = int(len(y) - len(idx))
         X, y, groups = X.loc[idx], y.loc[idx], groups.loc[idx]
 
+    holdout = None
+    if holdout_by:
+        source = data["_file"] if holdout_by == FILE_GROUP else data[holdout_by].astype("string").fillna("(missing)")
+        holdout = source.astype(str).loc[y.index]
+
     report.class_counts = {str(k): int(v) for k, v in y.value_counts().sort_index().items()}
-    return X.reset_index(drop=True), y.reset_index(drop=True), groups.reset_index(drop=True), report
+    return (
+        X.reset_index(drop=True),
+        y.reset_index(drop=True),
+        groups.reset_index(drop=True),
+        report,
+        None if holdout is None else holdout.reset_index(drop=True),
+    )

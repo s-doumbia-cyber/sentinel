@@ -2,6 +2,15 @@
 
 All notable changes. Dates are UTC.
 
+## 2026-10-21
+
+### Day-wise validation in the training CLI
+- `split.holdout` (`by: file` or a CSV column, explicit names / globs or a seeded fraction) keeps whole
+  capture days out of training; the shipped model is tested on them. `metrics.json` (`heldOut`), the
+  model card and the registry summary carry per-class precision / recall / F1 / support, per-group
+  macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
+  only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
+
 ## 2026-10-20
 
 ### Foundation (Phase 0)
