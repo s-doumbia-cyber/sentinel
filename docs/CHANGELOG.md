@@ -11,6 +11,18 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### Model drift and analyst feedback (roadmap 1.9)
+- Drift job: `POST /models/:version/drift` (Analyst and above; window 1 h to 30 days, default 24 h) samples
+  flows that model version scored recently (`$sample`, at most 20,000, at least 200 required, otherwise no
+  report), bins them with the model's training-time reference histogram and stores the PSI per feature in
+  an append-only `drift_reports` collection; audited as `model.drift_check`. `GET /models/:version/drift`
+  returns the latest report and history. Old models without a reference answer 409 "retrain".
+- `GET /models/:version/feedback`: analyst verdicts (true positive / false positive / benign / not reviewed)
+  per model version and alert type, labelled as reviewed-only, not precision.
+- Models page: Monitoring panel (level shown as text and icon, top features with glossary labels, class mix,
+  empty and error states). PSI unit-tested on a synthetic shift; API tests with an in-memory MongoDB.
+- Shared-file notes: new index on flows (`scored.modelVersion`, `scored.scoredAt`), new `DriftReport` model.
+
 ### Re-apply alert noise settings to existing alerts
 - `POST /detection/reapply` (Owner / Admin, background job, 202) rebuilds an organisation's alerts and
   incidents from the stored verdicts and rule hits under the current minimum confidence, allowlist, review

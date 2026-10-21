@@ -30,6 +30,8 @@ import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
+import { DriftService } from "./modules/monitoring/drift.service.js";
+import { monitoringRoutes } from "./modules/monitoring/monitoring.routes.js";
 import { ruleRoutes } from "./modules/rules/rule.routes.js";
 import { RuleService } from "./modules/rules/rule.service.js";
 import { ScoringService } from "./modules/scoring/scoring.service.js";
@@ -166,6 +168,7 @@ export function createApp(options: AppOptions): SentinelApp {
     memberRoutes(config),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),
+    monitoringRoutes(config, { drift: new DriftService(ml) }),
     alertRoutes(config),
     rebuildRoutes(config, { rebuild, scheduleRebuild }),
     ruleRoutes(config, { rules, scheduleDetections }),

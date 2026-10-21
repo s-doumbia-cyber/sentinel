@@ -101,10 +101,14 @@ Starter rules: port scan (distinct dst ports), SSH/FTP brute force (many short f
 
 ## 8. Confidence, unknowns and novelty
 
+*Implemented 2026-10-21 (roadmap 5.7):* see "Novelty detector" below in this section for what exists and what does not.
+
 - Confidence below the org threshold (default 0.6) → alert status `needs_review` (never a hard verdict).
 - Stretch: an IsolationForest trained on benign lab traffic produces a `novelty` score. High novelty with low class confidence → "Unknown behaviour" alert. Report its false-positive rate in the model card.
 
 ## 9. Drift and feedback
+
+*Implemented 2026-10-21 (roadmap 1.9):* training writes `reference.json` (10 bins per feature, from the rows the model was fitted on); the API compares flows a model version scored in a chosen window (up to 20,000, randomly sampled, at least 200 required) with it and stores a drift report (`POST /models/:version/drift`, `GET` for the latest and history). PSI < 0.1 is shown as stable, 0.1 to 0.2 moderate, 0.2 or more significant, always as text with an icon, and always described as a change in the input distribution, not as lost accuracy. Analyst verdicts are aggregated per model version and alert type (`GET /models/:version/feedback`) and labelled reviewed-only. Still to do: the daily schedule, the notification, and "Export labelled data". The text below is the target.
 
 - **Drift:** daily job computes PSI per feature between the training distribution and the last 24 h of live flows; also tracks predicted-class distribution. PSI > 0.2 raises a "model drift" notification.
 - **Feedback loop:** analyst verdicts (true positive / false positive / benign) are stored. "Export labelled data" produces a dataset for retraining. The Models lab shows false-positive rate by class and the number of analyst-labelled examples.

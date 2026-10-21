@@ -43,6 +43,16 @@ export const modelSummarySchema = z
   .passthrough();
 export type ModelSummary = z.infer<typeof modelSummarySchema>;
 
+/** Training-time histogram per feature (services/ml reference.json), the baseline of the drift check. */
+export const referenceHistogramSchema = z.object({
+  schema: featureSchemaIdSchema,
+  rows: z.number(),
+  bins: z.number(),
+  classProportions: z.record(z.number()).default({}),
+  features: z.record(z.object({ edges: z.array(z.number()), proportions: z.array(z.number()), missing: z.number() })),
+});
+export type ReferenceHistogram = z.infer<typeof referenceHistogramSchema>;
+
 const modelDetailSchema = modelSummarySchema.extend({ modelCard: z.string().optional() }).passthrough();
 export type ModelDetail = z.infer<typeof modelDetailSchema>;
 
@@ -77,6 +87,8 @@ export class MlContractError extends Error {
 export interface MlClient {
   listModels(): Promise<ModelSummary[]>;
   getModel(version: string): Promise<ModelDetail | null>;
+  /** The model's training-time reference distribution; null for models trained before it existed. */
+  getReference(version: string): Promise<ReferenceHistogram | null>;
   predict(req: {
     schema: string;
     modelVersion: string;
@@ -133,6 +145,10 @@ export function createMlClient(config: AppConfig): MlClient {
     async getModel(version) {
       const body = await call(`/models/${encodeURIComponent(version)}`);
       return body === null ? null : parseOrFail(modelDetailSchema, body);
+    },
+    async getReference(version) {
+      const body = await call(`/models/${encodeURIComponent(version)}/reference`);
+      return body === null ? null : parseOrFail(referenceHistogramSchema, body);
     },
     async predict(req) {
       const body = await call("/predict", { method: "POST", body: JSON.stringify(req) }, 120_000);

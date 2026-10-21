@@ -11,6 +11,7 @@ import { ApiError, api, errorMessage } from "@/lib/api";
 import { cn, formatDateTime, formatExact, formatScore } from "@/lib/format";
 import { useEvaluation, useModel, useModels, useOrgMutation, useScoringStatus } from "@/lib/queries";
 import type { ClassMetric, Evaluation, ModelDetail } from "@/lib/types";
+import { MonitoringPanel } from "./MonitoringPanel";
 
 /** Per-class table: always with support, small supports flagged (docs/ML_AND_DETECTION.md §12). */
 export function PerClassTable({ rows, caption }: { rows: ClassMetric[]; caption: string }) {
@@ -274,6 +275,7 @@ function ModelView({ version }: { version: string }) {
           )}
         </CardBody>
       </Card>
+      <MonitoringPanel version={m.version} active={m.active} />
       <OrgEvaluation model={m} />
     </div>
   );

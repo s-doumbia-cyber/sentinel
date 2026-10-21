@@ -7,6 +7,8 @@ import type {
   AssetDetail,
   AssetEvent,
   DetectionSettings,
+  DriftOverview,
+  ModelFeedback,
   ReapplyStatus,
   IdentityLookup,
   IdentityRecord,
@@ -301,4 +303,14 @@ export function useValidationRuns() {
 export function useValidationRun(id: string | null) {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "validationRun", id], queryFn: () => api<ValidationRun>(`/validation/runs/${id}`), enabled: Boolean(id) });
+}
+
+export function useDrift(version: string) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "drift", version], queryFn: () => api<DriftOverview>(`/models/${encodeURIComponent(version)}/drift`) });
+}
+
+export function useModelFeedback(version: string) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "modelFeedback", version], queryFn: () => api<ModelFeedback>(`/models/${encodeURIComponent(version)}/feedback`) });
 }

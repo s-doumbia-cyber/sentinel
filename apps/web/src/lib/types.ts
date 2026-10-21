@@ -539,3 +539,42 @@ export interface DetectionSettings {
   allowlist: { cidr: string; note: string; addedBy: string | null; addedAt: string }[];
   suppressedVerdicts: { belowMinConfidence: number; allowlisted: number };
 }
+
+export type DriftLevel = "stable" | "moderate" | "significant";
+
+export interface FeatureDrift {
+  name: string;
+  psi: number;
+  level: DriftLevel;
+  missingCurrent: number;
+  missingReference: number;
+  values: number;
+}
+
+export interface DriftReport {
+  id: string;
+  createdAt: string;
+  windowHours: number;
+  referenceRows: number;
+  sampleSize: number;
+  maxPsi: number;
+  level: DriftLevel;
+  driftedFeatureCount: number;
+  features: FeatureDrift[];
+  predictedClassShare: Record<string, number>;
+  trainingClassShare: Record<string, number>;
+}
+
+export interface DriftOverview {
+  latest: DriftReport | null;
+  history: { id: string; createdAt: string; maxPsi: number; level: DriftLevel; sampleSize: number; windowHours: number }[];
+}
+
+export type DriftRunResult = ({ status: "ok"; id: string; windowHours: number } & Omit<DriftReport, "id" | "createdAt" | "windowHours" | "referenceRows" | "trainingClassShare">) | { status: "insufficient_data"; sampleSize: number; minimum: number; windowHours: number };
+
+export interface ModelFeedback {
+  modelVersion: string;
+  totals: { alerts: number; reviewed: number; truePositive: number; falsePositive: number; benign: number; unreviewed: number; withRuleEvidence: number };
+  confirmedShareOfReviewed: number | null;
+  byType: { type: string; truePositive: number; falsePositive: number; benign: number; unreviewed: number }[];
+}
