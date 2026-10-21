@@ -142,7 +142,12 @@ async function main() {
     for (const kind of ["import", "score", "detect", "assets", "rollup", "retention"] as const) queue.register(kind, async () => undefined);
 
     const reg = await request(sa.app).post("/api/v1/auth/register").send({ name: "Bench", email: "bench@bench.test", password: "bench-password-123" });
-    const token = reg.body.accessToken as string;
+    let token = reg.body.accessToken as string;
+    // Raw timings can outlast the 15-minute access token: sign in again before each endpoint (not timed).
+    const freshToken = async () => {
+      const res = await request(sa.app).post("/api/v1/auth/login").send({ email: "bench@bench.test", password: "bench-password-123" });
+      token = res.body.accessToken as string;
+    };
     const orgId = new mongoose.Types.ObjectId(reg.body.orgs[0].id as string);
     const datasets = Array.from({ length: 5 }, () => new mongoose.Types.ObjectId());
 
@@ -185,6 +190,7 @@ async function main() {
     const measure = async (label: string) => {
       const out: { name: string; p50: number; p95: number; source: string }[] = [];
       for (const [name, url] of endpoints) {
+        await freshToken();
         const times: number[] = [];
         let source = "-";
         for (let i = 0; i < RUNS; i++) {

@@ -4,6 +4,20 @@ All notable changes. Dates are UTC.
 
 ## 2026-10-21
 
+### Performance (roadmap 5.4, partial)
+- Minute rollups answer every stats endpoint exactly (rollups for whole minutes, raw flows for the
+  partial minutes at range ends, raw fallback while a rebuild is pending); header
+  `X-Sentinel-Stats-Source` says which path answered. Scoring status uses index counts.
+- `npm run bench -w @sentinel/api` times the endpoints on a throwaway mongod with synthetic flows.
+  3 M flows: stats endpoints 7–23× faster (0.4–3.5 s p50), still above the 300 ms target; see
+  `docs/PERFORMANCE.md`.
+
+### API docs and observability (roadmap 5.6, 5.8)
+- OpenAPI 3.0 generated from the route policies and zod schemas at `/api/docs/openapi.json`, and a
+  script-free reference page at `/api/docs`.
+- Optional Prometheus `/metrics` (requests and latency by route template, queue depth, dependency
+  status, memory), behind `METRICS_ENABLED` and an optional token; `/readyz` reports Redis.
+
 ### Retention, system page and security pass (roadmap 5.3, 5.5)
 - Per-org data retention (off by default, Owner only) with a dry-run preview, an audited purge job and a
   daily sweep; alerts linked to incidents, incidents, the audit log and import records are kept.
