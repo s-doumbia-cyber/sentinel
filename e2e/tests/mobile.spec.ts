@@ -36,7 +36,7 @@ test("every page stays reachable from the mobile bottom bar", async ({ page }) =
   const bar = page.getByRole("navigation", { name: "Main (mobile)" });
   await expect(bar).toBeVisible();
   await bar.getByRole("button", { name: "More pages" }).click();
-  for (const name of ["Assets", "Rules", "Models", "Validation", "Datasets", "Identity sources", "Team", "Audit log", "Settings"]) {
+  for (const name of ["Assets", "Rules", "Models", "Validation", "Datasets", "Identity sources", "Team", "Audit log", "System", "Settings"]) {
     await expect(page.getByRole("menuitem", { name })).toBeVisible();
   }
   await page.getByRole("menuitem", { name: "Assets" }).click();

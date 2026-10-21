@@ -28,8 +28,8 @@ function zodDetails(err: z.ZodError) {
 
 export interface RuleRouteDeps {
   rules: RuleService;
-  /** Runs rules and model-alert backfill in the background. */
-  scheduleDetections: (orgId: Types.ObjectId, datasetId?: Types.ObjectId) => void;
+  /** Queues rules and the model-alert backfill (durable with Redis). */
+  scheduleDetections: (orgId: Types.ObjectId, datasetId?: Types.ObjectId) => Promise<void>;
 }
 
 export function ruleRoutes(config: AppConfig, deps: RuleRouteDeps): PolicyRouter {
@@ -159,7 +159,7 @@ export function ruleRoutes(config: AppConfig, deps: RuleRouteDeps): PolicyRouter
       const { orgId } = authOf(req);
       const { datasetId } = parsed<z.infer<typeof scopeBody>>(req, "body");
       await auditFromRequest(req, "detections.run", { type: "org", id: String(orgId) }, { datasetId: datasetId ?? null });
-      deps.scheduleDetections(orgId, datasetId ? new mongoose.Types.ObjectId(datasetId) : undefined);
+      await deps.scheduleDetections(orgId, datasetId ? new mongoose.Types.ObjectId(datasetId) : undefined);
       res.status(202).json({ started: true });
     }),
   );

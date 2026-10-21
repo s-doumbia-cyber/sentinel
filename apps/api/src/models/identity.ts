@@ -38,6 +38,20 @@ const userSchema = new Schema(
       theme: { type: String, enum: THEMES, default: "light" },
       density: { type: String, enum: DENSITIES, default: "comfortable" },
     },
+    /** TOTP second factor. Seeds are AES-256-GCM sealed; recovery codes are SHA-256 hashes. */
+    mfa: {
+      enabled: { type: Boolean, default: false },
+      secretEnc: { type: String, default: null },
+      enabledAt: { type: Date, default: null },
+      /** Seed being enrolled, until the first valid code confirms it. */
+      pendingSecretEnc: { type: String, default: null },
+      pendingCreatedAt: { type: Date, default: null },
+      /** Last accepted TOTP time step: a code is never accepted twice. */
+      lastTimeStep: { type: Number, default: 0 },
+      recoveryCodeHashes: { type: [String], default: [] },
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null },
+    },
   },
   { timestamps: true },
 );
@@ -70,6 +84,15 @@ const orgSchema = new Schema(
           },
         ],
         default: [],
+      },
+      /** Flows and alerts stored longer than this many days are purged; null keeps everything. */
+      retentionDays: { type: Number, default: null, min: 1, max: 3650 },
+      lastRetentionRun: {
+        at: { type: Date, default: null },
+        cutoff: { type: Date, default: null },
+        flowsDeleted: { type: Number, default: 0 },
+        alertsDeleted: { type: Number, default: 0 },
+        alertsKept: { type: Number, default: 0 },
       },
       /** Active model version per feature schema, chosen by an Owner/Admin of this org. */
       activeModels: { type: Map, of: String, default: () => new Map() },

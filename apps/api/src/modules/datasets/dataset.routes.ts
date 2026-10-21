@@ -1,20 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Types } from "mongoose";
 import multer from "multer";
 import { objectIdSchema } from "@sentinel/shared";
 import { z } from "zod";
 import type { AppConfig } from "../../config/index.js";
 import { AppError } from "../../lib/errors.js";
 import { ah, authOf, parsed, validate } from "../../lib/http.js";
-import type { BackgroundJobs } from "../../lib/jobs.js";
-import type { Logger } from "../../lib/logger.js";
 import { PolicyRouter } from "../../lib/routes.js";
+import { MULTIPART_LIMITS, assertTextFile } from "../../lib/uploads.js";
 import { Dataset, Flow, type DatasetDoc } from "../../models/tenant.js";
 import { auditFromRequest } from "../audit/audit.service.js";
-import { SCHEMA_FOR_SOURCE_TYPE, checkCsvHeader, createDatasetRecord, runCsvImport } from "./csv.importer.js";
+import type { Scheduler } from "../jobs/job.handlers.js";
+import { SCHEMA_FOR_SOURCE_TYPE, checkCsvHeader, createDatasetRecord } from "./csv.importer.js";
 
 type DatasetLike = Omit<DatasetDoc, "groundTruthCounts"> & { groundTruthCounts?: Map<string, number> | Record<string, number> | null };
 
@@ -48,21 +46,20 @@ const importBody = z.object({ sourceType: z.enum(["CICIDS2017"]).default("CICIDS
 const idParams = z.object({ id: objectIdSchema });
 
 export interface DatasetRouteDeps {
-  jobs: BackgroundJobs;
-  logger: Logger;
-  /** Called after a successful import so new flows get scored and checked by the rules. */
-  onImported: (orgId: Types.ObjectId, datasetId: Types.ObjectId) => void;
+  /** The import job also queues scoring, detections and the asset refresh once it succeeds. */
+  schedule: Pick<Scheduler, "importCsv" | "mode">;
+  uploadDir: string;
 }
 
 export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): PolicyRouter {
   const r = new PolicyRouter(config);
   const upload = multer({
     storage: multer.diskStorage({
-      destination: tmpdir(),
+      destination: deps.uploadDir,
       // Generated name: the client's filename never touches the filesystem path.
       filename: (_req, _file, cb) => cb(null, `sentinel-upload-${randomBytes(12).toString("hex")}.csv`),
     }),
-    limits: { fileSize: config.uploadMaxBytes, files: 1, fields: 5 },
+    limits: { ...MULTIPART_LIMITS, fileSize: config.uploadMaxBytes },
     fileFilter: (_req, file, cb) => {
       if (path.extname(file.originalname).toLowerCase() !== ".csv") {
         cb(new AppError("UNSUPPORTED_MEDIA", 415, "Only .csv files are accepted"));
@@ -108,7 +105,9 @@ export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): Policy
       try {
         const body = importBody.safeParse(req.body ?? {});
         if (!body.success) throw AppError.validation("Unsupported sourceType: only CICIDS2017 CSV exports are supported");
-        const header = await checkCsvHeader(file.path, SCHEMA_FOR_SOURCE_TYPE[body.data.sourceType]);
+        // Fail fast on an unsupported file; the job checks the header again before reading rows.
+        await assertTextFile(file.path);
+        await checkCsvHeader(file.path, SCHEMA_FOR_SOURCE_TYPE[body.data.sourceType]);
         const input = {
           orgId: ctx.orgId,
           userId: ctx.userId,
@@ -119,19 +118,31 @@ export function datasetRoutes(config: AppConfig, deps: DatasetRouteDeps): Policy
           sourceKind: "IMPORTED" as const,
         };
         const dataset = await createDatasetRecord(input);
+        try {
+          // The job owns the file from here: it deletes it after the import (or the last failed attempt).
+          await deps.schedule.importCsv({
+            orgId: String(ctx.orgId),
+            datasetId: String(dataset._id),
+            userId: String(ctx.userId),
+            filePath: file.path,
+            name: input.name,
+            fileBytes: input.fileBytes,
+            sourceType: input.sourceType,
+            sourceKind: input.sourceKind,
+          });
+          handedOff = true;
+        } catch (err) {
+          await Dataset.updateOne(
+            { orgId: ctx.orgId, _id: dataset._id },
+            { $set: { status: "Failed", error: "Could not queue the import (job queue unavailable)", completedAt: new Date() } },
+          );
+          throw err;
+        }
         await auditFromRequest(req, "dataset.import", { type: "dataset", id: String(dataset._id) }, {
           name: input.name,
           bytes: file.size,
+          queue: deps.schedule.mode,
         });
-        deps.jobs.run(`import:${String(dataset._id)}`, async () => {
-          try {
-            await runCsvImport(dataset._id, input, header, deps.logger);
-            deps.onImported(ctx.orgId, dataset._id);
-          } finally {
-            await unlink(file.path).catch(() => undefined);
-          }
-        });
-        handedOff = true;
         res.status(202).json(toDatasetResponse(dataset));
       } finally {
         if (!handedOff) await unlink(file.path).catch(() => undefined);

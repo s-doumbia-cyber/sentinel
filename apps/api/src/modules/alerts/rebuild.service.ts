@@ -50,29 +50,39 @@ export interface ReapplyResult {
  * output and is rebuilt. Running it again with unchanged settings yields the
  * same alerts and incidents.
  */
+/** Whether a queued or running job of this kind exists for the org (across API and worker processes). */
+export type QueueBusy = (kind: "score" | "reapply", orgId: Types.ObjectId) => Promise<boolean>;
+
 export class AlertRebuildService {
-  private readonly running = new Set<string>();
+  /** Requests between their checks and the enqueue; the queue itself tracks the run after that. */
+  private readonly starting = new Set<string>();
 
   constructor(
     private readonly scoring: ScoringService,
     private readonly rules: RuleService,
     private readonly correlation: CorrelationService,
     private readonly logger: Logger,
+    private readonly busy: QueueBusy = async () => false,
   ) {}
 
-  isRunning(orgId: Types.ObjectId): boolean {
-    return this.running.has(String(orgId));
+  async isRunning(orgId: Types.ObjectId): Promise<boolean> {
+    return this.starting.has(String(orgId)) || (await this.busy("reapply", orgId));
   }
 
-  /** Takes the per-org lock synchronously, so two quick requests cannot both start a run. */
-  begin(orgId: Types.ObjectId): void {
-    if (this.scoring.isRunning(orgId)) throw AppError.conflict("Scoring is running for this organisation; try again when it has finished");
-    if (this.running.has(String(orgId))) throw AppError.conflict("Alerts are already being rebuilt for this organisation");
-    this.running.add(String(orgId));
+  /**
+   * Refuses while scoring or another rebuild is queued or running. The queue checks
+   * are async; the final check-and-take is synchronous, so two quick requests cannot
+   * both pass. Hold it until the job is enqueued, then `release()`.
+   */
+  async begin(orgId: Types.ObjectId): Promise<void> {
+    const [scoringQueued, rebuildQueued] = await Promise.all([this.busy("score", orgId), this.busy("reapply", orgId)]);
+    if (this.scoring.isRunning(orgId) || scoringQueued) throw AppError.conflict("Scoring is running for this organisation; try again when it has finished");
+    if (this.starting.has(String(orgId)) || rebuildQueued) throw AppError.conflict("Alerts are already being rebuilt for this organisation");
+    this.starting.add(String(orgId));
   }
 
   release(orgId: Types.ObjectId): void {
-    this.running.delete(String(orgId));
+    this.starting.delete(String(orgId));
   }
 
   /** What a run would keep and what it would rebuild, without changing anything. */
@@ -106,10 +116,10 @@ export class AlertRebuildService {
     };
   }
 
-  /** Runs the rebuild. The caller must hold the lock from `begin()`; it is released here. */
+  /** Runs the rebuild (the "reapply" job body; `begin()` keeps a second one from being queued). */
   async rebuild(orgId: Types.ObjectId): Promise<ReapplyResult> {
     const started = Date.now();
-    try {
+    {
       const c = await this.classify(orgId);
       // Machine-made incidents: correlated and untouched. Their investigation-log events go with them.
       if (c.machineIncidentIds.length) {
@@ -120,12 +130,12 @@ export class AlertRebuildService {
       // Re-open every malicious verdict for alerting; the verdicts themselves stay on the flows.
       await Flow.updateMany(
         { orgId, scoreStatus: "scored", "scored.label": { $ne: "Normal" }, alertedAt: { $ne: null } },
-        { $set: { alertedAt: null, alertClaim: null, alertSuppressed: null } },
+        { $set: { alertedAt: null, alertClaim: null, alertClaimedAt: null, alertSuppressed: null } },
       );
 
       const policy = { ...(await loadAlertPolicy(orgId)), frozenKeys: c.frozenKeys };
       const ruleRun = await this.rules.run(orgId, {}, policy);
-      const modelAlertsCreated = await this.scoring.alertUnalerted(orgId, undefined, policy);
+      const modelAlertsCreated = await this.scoring.alertUnalerted(orgId, undefined, { policy });
       await this.correlation.correlate(orgId);
 
       const [alerts, incidents, belowMinConfidence, allowlisted] = await Promise.all([
@@ -139,8 +149,6 @@ export class AlertRebuildService {
         after: { alerts, incidents, ruleAlertsCreated: ruleRun.created, modelAlertsCreated, suppressedVerdicts: { belowMinConfidence, allowlisted } },
         durationMs: Date.now() - started,
       };
-    } finally {
-      this.running.delete(String(orgId));
     }
   }
 

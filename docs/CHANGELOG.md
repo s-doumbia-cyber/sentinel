@@ -46,7 +46,7 @@ All notable changes. Dates are UTC.
   and the last outcome. Flows and verdicts are untouched. Alerts an analyst triaged (verdict or analyst
   status), incidents a person created or worked on (status, assignee, notes, actions, report) and every alert
   inside such an incident are kept as they are and their evidence is not counted twice; everything else is
-  rebuilt. Idempotent; refused while scoring or another rebuild runs. Audited (`detection.reapply`,
+  rebuilt. Idempotent; runs as the durable `reapply` job and is refused while scoring or another rebuild is queued or running. Audited (`detection.reapply`,
   `detection.reapply_done` / `_failed`). Settings → Detection gets a confirm dialog that states the counts.
   Tests on an in-memory MongoDB (rebuild, idempotence, analyst work kept, roles, org isolation, locking) and a
   component test.
@@ -65,6 +65,60 @@ All notable changes. Dates are UTC.
   quantile, saved as `novelty.joblib`. `/predict` adds `novelty` next to the verdict; the model card
   reports the benign false-positive rate and the share of each attack class above the threshold.
   It is never mapped to an attack class. pytest coverage.
+
+### Performance (roadmap 5.4, partial)
+- Minute rollups answer every stats endpoint exactly (rollups for whole minutes, raw flows for the
+  partial minutes at range ends, raw fallback while a rebuild is pending); header
+  `X-Sentinel-Stats-Source` says which path answered. Scoring status uses index counts.
+- `npm run bench -w @sentinel/api` times the endpoints on a throwaway mongod with synthetic flows.
+  3 M flows: stats endpoints 7–23× faster (0.4–3.5 s p50), still above the 300 ms target; see
+  `docs/PERFORMANCE.md`.
+
+### API docs and observability (roadmap 5.6, 5.8)
+- OpenAPI 3.0 generated from the route policies and zod schemas at `/api/docs/openapi.json`, and a
+  script-free reference page at `/api/docs`.
+- Optional Prometheus `/metrics` (requests and latency by route template, queue depth, dependency
+  status, memory), behind `METRICS_ENABLED` and an optional token; `/readyz` reports Redis.
+
+### Retention, system page and security pass (roadmap 5.3, 5.5)
+- Per-org data retention (off by default, Owner only) with a dry-run preview, an audited purge job and a
+  daily sweep; alerts linked to incidents, incidents, the audit log and import records are kept.
+- System page (Owners / Admins): service health, failed background jobs with retry, retention.
+- `docs/SECURITY_ASVS.md`: OWASP ASVS L1 checklist with evidence and open gaps.
+- Hardening: `Cache-Control: no-store` on API responses, upload content sniffing (binary and non-UTF-8
+  files refused) and multipart limits, password-change rate limit, MFA material redacted from logs,
+  extra nginx headers (`object-src 'none'`, Permissions-Policy, COOP).
+
+### Two-factor authentication (roadmap 5.2)
+- TOTP enrolment from Settings → Security (password re-check, QR code or manual key, first code confirms),
+  10 one-time recovery codes shown once, disable and regenerate behind the password.
+- Sign-in asks for the code after the password; a code is never accepted twice; 5 wrong codes lock the
+  factor for 15 minutes; endpoints rate-limited per IP and account. Enabling signs out other sessions.
+- Seeds sealed with AES-256-GCM (`ENCRYPTION_KEY`, optional); recovery codes hashed; neither is exported.
+- Login answers unknown emails as slowly as wrong passwords.
+
+### Team invitations and member management (roadmap 5.1)
+- Owners / Admins create single-use invitation links (1-14 days, one email, token stored as SHA-256 and
+  shown once, sent in the URL fragment). Only Owners can invite or revoke Owners.
+- `/accept-invite` page: new people create their account from the invitation; existing accounts accept
+  while signed in with the invited email. Public endpoints are rate-limited and answer the same 404 for
+  unknown, used, revoked and expired links.
+- Remove a member and leave an organisation, with last-Owner safeguards that survive concurrent changes.
+- Audit actions `invite.create`, `invite.revoke`, `invite.accept`, `member.remove`, `member.leave`.
+
+### Durable jobs (roadmap 1.5)
+- Imports, scoring, detections and the asset refresh run as BullMQ jobs on Redis when `REDIS_URL` is set,
+  with 3 attempts, exponential backoff and a dead-letter list (`failed_jobs`); without Redis the same
+  handlers run in-process with the same retry policy, so tests and the e2e suite need no service.
+- Alert evidence is claimed in the same write as the model verdict and settled once per claim key:
+  a job that crashes, is retried or stalls (worker killed) neither loses nor double-counts flows.
+  Rule hit keys are checked atomically inside the alert update.
+- A retried import removes the rows of its interrupted attempt first (no duplicates).
+- `GET /jobs/status`, `GET /jobs/failed` and an audited `POST /jobs/failed/:id/retry` (Owner / Admin).
+- `/readyz` reports Redis; Compose gains a `redis` service (healthcheck, `noeviction`, volume) and an
+  uploads volume; `src/worker.ts` runs workers without HTTP (`RUN_WORKERS=false` on the API).
+- CI starts a Redis service for the BullMQ integration tests (skipped locally without
+  `SENTINEL_TEST_REDIS_URL`).
 
 ## 2026-10-20
 

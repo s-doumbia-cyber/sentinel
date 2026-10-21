@@ -36,6 +36,7 @@ const pages: { path: (id: string) => string; ready: string | RegExp }[] = [
   { path: () => "/flows", ready: "Flows" },
   { path: () => "/team", ready: "Team" },
   { path: () => "/audit", ready: "Audit log" },
+  { path: () => "/system", ready: "System" },
   { path: () => "/settings", ready: "Settings" },
 ];
 
@@ -46,6 +47,9 @@ test("the sign-in page has no serious accessibility violations", async ({ page }
   await page.goto("/register");
   await expect(page.getByRole("button", { name: "Create workspace" })).toBeVisible();
   await expectNoSeriousViolations(page, "/register");
+  await page.goto("/accept-invite");
+  await expect(page.getByRole("heading", { level: 1, name: "Invitation link incomplete" })).toBeVisible();
+  await expectNoSeriousViolations(page, "/accept-invite");
 });
 
 test("key pages have no serious accessibility violations", async ({ page }) => {

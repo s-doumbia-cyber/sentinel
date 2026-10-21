@@ -9,6 +9,7 @@ import {
   SEVERITIES,
   SOURCE_KINDS,
 } from "@sentinel/shared";
+import { trackRollupChanges } from "./rollups.js";
 import { tenantGuard } from "./tenantGuard.js";
 
 const orgRef = { type: Schema.Types.ObjectId, ref: "Org", required: true } as const;
@@ -67,6 +68,8 @@ const flowSchema = new Schema(
     /** Set once a malicious verdict has been folded into an alert (keeps alerting idempotent). */
     alertedAt: { type: Date, default: null },
     alertClaim: { type: String, default: null },
+    /** Set while a claim is open (claimed, not yet settled); a crashed run's claims are found by it. */
+    alertClaimedAt: { type: Date, default: undefined },
     /** Why a malicious verdict did not become an alert (the verdict itself is kept). */
     alertSuppressed: { type: String, enum: ["below_min_confidence", "allowlisted", null], default: null },
   },
@@ -82,7 +85,12 @@ flowSchema.index({ orgId: 1, scoreStatus: 1, featureSchema: 1, _id: 1 });
 flowSchema.index({ orgId: 1, datasetId: 1 });
 // Drift checks sample the flows one model version scored recently.
 flowSchema.index({ orgId: 1, "scored.modelVersion": 1, "scored.scoredAt": -1 }, { partialFilterExpression: { scoreStatus: "scored" } });
+// Open alert claims only (see AlertService.recoverClaims).
+flowSchema.index({ orgId: 1, alertClaimedAt: 1 }, { partialFilterExpression: { alertClaimedAt: { $type: "date" } } });
+// Retention purges by storage time, not event time (imported datasets can be years old).
+flowSchema.index({ orgId: 1, createdAt: 1 });
 tenantGuard(flowSchema, "Flow");
+trackRollupChanges(flowSchema);
 
 export type FlowDoc = InferSchemaType<typeof flowSchema> & { _id: Types.ObjectId };
 // The legacy collection name is kept so existing imports can be migrated in place.
@@ -238,6 +246,8 @@ const alertSchema = new Schema(
     ruleIds: { type: [String], default: [] },
     modelVersions: { type: [String], default: [] },
     hitKeys: { type: [String], default: [] },
+    /** Model evidence claims already counted, so settling a claim twice never double-counts. */
+    claimKeys: { type: [String], default: [] },
     ruleHits: [
       {
         _id: false,
@@ -260,6 +270,7 @@ alertSchema.index({ orgId: 1, status: 1, lastSeen: -1 });
 alertSchema.index({ orgId: 1, lastSeen: -1, _id: -1 });
 alertSchema.index({ orgId: 1, srcIp: 1 });
 alertSchema.index({ orgId: 1, incidentId: 1, firstSeen: 1 });
+alertSchema.index({ orgId: 1, updatedAt: 1 });
 tenantGuard(alertSchema, "Alert");
 
 export type AlertDoc = InferSchemaType<typeof alertSchema> & { _id: Types.ObjectId };

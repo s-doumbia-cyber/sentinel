@@ -160,19 +160,29 @@ describe("re-apply detection settings to existing alerts", () => {
     expect(summary(await alertsOf(other.auth))).toEqual(otherBefore);
   });
 
-  it("refuses to start while scoring or another rebuild runs, and releases the lock afterwards", () => {
+  it("refuses to start while scoring or another rebuild is running or queued, and releases the lock afterwards", async () => {
     let scoring = false;
-    const svc = new AlertRebuildService({ isRunning: () => scoring } as unknown as ScoringService, {} as never, {} as never, {} as never);
+    const queued = { score: false, reapply: false };
+    const svc = new AlertRebuildService({ isRunning: () => scoring } as unknown as ScoringService, {} as never, {} as never, {} as never, async (kind) => queued[kind]);
     const org = oid("64b64b64b64b64b64b64b64b");
-    svc.begin(org);
-    expect(svc.isRunning(org)).toBe(true);
-    expect(() => svc.begin(org)).toThrow(AppError);
+    await svc.begin(org);
+    expect(await svc.isRunning(org)).toBe(true);
+    await expect(svc.begin(org)).rejects.toThrow(AppError);
+    svc.release(org);
+    // Two requests racing past the async checks: only one takes the lock.
+    expect((await Promise.allSettled([svc.begin(org), svc.begin(org)])).map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
     svc.release(org);
     scoring = true;
-    expect(() => svc.begin(org)).toThrow(/Scoring is running/);
+    await expect(svc.begin(org)).rejects.toThrow(/Scoring is running/);
     scoring = false;
-    svc.begin(org);
-    svc.release(org);
-    expect(svc.isRunning(org)).toBe(false);
+    queued.score = true;
+    await expect(svc.begin(org)).rejects.toThrow(/Scoring is running/);
+    queued.score = false;
+    // A rebuild queued by another API process or still running in a worker.
+    queued.reapply = true;
+    expect(await svc.isRunning(org)).toBe(true);
+    await expect(svc.begin(org)).rejects.toThrow(/already being rebuilt/);
+    queued.reapply = false;
+    expect(await svc.isRunning(org)).toBe(false);
   });
 });

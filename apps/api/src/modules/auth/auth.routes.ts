@@ -35,7 +35,7 @@ function cookieOptions(expires?: Date): CookieOptions {
   return { httpOnly: true, secure: true, sameSite: "strict", path: COOKIE_PATH, ...(expires ? { expires } : {}) };
 }
 
-function setRefreshCookie(res: Response, token: string, expires: Date) {
+export function setRefreshCookie(res: Response, token: string, expires: Date) {
   res.cookie(REFRESH_COOKIE, token, cookieOptions(expires));
 }
 
@@ -62,6 +62,17 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     },
   });
   const csrf = requireCsrfHeader(config);
+  // Password checks behind a session (a stolen access token must not allow unlimited guessing).
+  const passwordLimiter = rateLimit({
+    windowMs: options.authRateLimit.windowMs,
+    limit: options.authRateLimit.max,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => `pw|${String(req.auth?.userId ?? req.ip)}`,
+    handler: (req, res) => {
+      res.status(429).json({ error: { code: "RATE_LIMITED", message: "Too many attempts. Try again later.", requestId: req.id } });
+    },
+  });
 
   r.route(
     "post",
@@ -88,7 +99,13 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     limiter,
     validate("body", loginBodySchema),
     ah(async (req, res) => {
-      const { user, orgs, tokens } = await auth.login(config, req, parsed(req, "body"));
+      const result = await auth.login(config, req, parsed(req, "body"));
+      if (result.mfaRequired) {
+        // No session yet: the client must answer the second factor at /auth/mfa/verify.
+        res.json({ mfaRequired: true, mfaToken: result.mfaToken, expiresIn: 300 });
+        return;
+      }
+      const { user, orgs, tokens } = result;
       setRefreshCookie(res, tokens.refreshToken, tokens.refreshExpiresAt);
       res.json({ accessToken: tokens.accessToken, expiresIn: tokens.expiresIn, user: auth.toUserResponse(user), orgs });
     }),
@@ -143,6 +160,7 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     "post",
     "/auth/change-password",
     "self",
+    passwordLimiter,
     validate("body", changePasswordBodySchema),
     ah(async (req, res) => {
       const { userId, sessionId } = authOf(req);
@@ -240,7 +258,8 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     "self",
     ah(async (req, res) => {
       const { userId } = authOf(req);
-      const user = await User.findById(userId).select("-passwordHash").lean();
+      // Never export secrets: password hash, TOTP seeds, recovery-code hashes.
+      const user = await User.findById(userId).select("-passwordHash -mfa.secretEnc -mfa.pendingSecretEnc -mfa.recoveryCodeHashes").lean();
       const sessions = await AuthSession.find({ userId }).select("-refreshTokenHash -rotatedHashes").lean();
       res.json({ exportedAt: new Date().toISOString(), account: user, memberships: await auth.listMyOrgs(userId), sessions });
     }),

@@ -1,6 +1,7 @@
 import type { Types, mongo } from "mongoose";
 import { extractFeatures, normalizeLabel } from "@sentinel/shared";
 import { Membership, Org, normalizeLanguage } from "../../models/identity.js";
+import { markFlowsChanged } from "../../models/rollups.js";
 import { parseIp, parseTimestamp } from "../datasets/csv.parsing.js";
 
 type Db = mongo.Db;
@@ -163,5 +164,7 @@ export async function applyLegacyMigration(
   await incidents.updateMany({ ...noOrg, severity: "safe" }, { $set: { severity: "info" } });
   await incidents.updateMany(noOrg, [{ $set: { orgId, "legacy.assignee": "$assignee", assigneeId: null } }, { $unset: ["assignee"] }]);
 
+  // Raw driver writes bypass the flow hooks: mark the org's rollups stale explicitly.
+  if (migrated) await markFlowsChanged(orgId);
   return { orgId, usersAttached: toAttach.length, flowsMigrated: migrated, flowsWithLegacyTimestamp: legacyTs };
 }

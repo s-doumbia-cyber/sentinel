@@ -1,9 +1,10 @@
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { loginBodySchema, registerBodySchema } from "@sentinel/shared";
+import { loginBodySchema, recoveryCodeSchema, registerBodySchema, totpCodeSchema } from "@sentinel/shared";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Form";
+import { useToast } from "@/components/ui/Toast";
 import { ApiError, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { useAuth } from "./AuthContext";
@@ -85,14 +86,25 @@ function fieldErrors(err: unknown): Record<string, string> {
 }
 
 export function LoginPage() {
-  const { status, login } = useAuth();
+  const { status, login, verifyMfa } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [useRecovery, setUseRecovery] = useState(false);
+  const [code, setCode] = useState("");
   if (status === "authenticated") return <Navigate to="/" replace />;
+
+  const goOn = () => {
+    const from = (location.state as { from?: string } | null)?.from;
+    navigate(from && from !== "/login" ? from : "/", { replace: true });
+  };
+  const failure = (err: unknown) =>
+    setError(err instanceof ApiError && err.code === "RATE_LIMITED" ? "Too many attempts. Wait a few minutes and try again." : errorMessage(err));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -101,15 +113,83 @@ export function LoginPage() {
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Check the form");
     setBusy(true);
     try {
-      await login(parsed.data.email, parsed.data.password);
-      const from = (location.state as { from?: string } | null)?.from;
-      navigate(from && from !== "/login" ? from : "/", { replace: true });
+      const result = await login(parsed.data.email, parsed.data.password);
+      if (result) {
+        setChallenge(result.mfaToken);
+        setPassword("");
+      } else goOn();
     } catch (err) {
-      setError(err instanceof ApiError && err.code === "RATE_LIMITED" ? "Too many attempts. Wait a few minutes and try again." : errorMessage(err));
+      failure(err);
     } finally {
       setBusy(false);
     }
   };
+
+  const submitCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const parsed = (useRecovery ? recoveryCodeSchema : totpCodeSchema).safeParse(code);
+    if (!parsed.success || !challenge) return setError(parsed.error?.issues[0]?.message ?? "Check the code");
+    setBusy(true);
+    try {
+      const { recoveryCodesLeft } = await verifyMfa(challenge, useRecovery ? { recoveryCode: parsed.data } : { code: parsed.data });
+      if (useRecovery) toast.success(`Recovery code used: ${recoveryCodesLeft} left. Generate new ones in Settings → Security when you run low.`);
+      goOn();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401 && /expired/i.test(err.message)) setChallenge(null);
+      failure(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (challenge) {
+    return (
+      <AuthLayout title="Two-factor check" subtitle={useRecovery ? "Enter one of your recovery codes. Each works once." : "Enter the 6-digit code from your authenticator app."}>
+        <form onSubmit={submitCode} className="space-y-4" noValidate>
+          {error && (
+            <p role="alert" className="rounded-md border border-sev-critical/40 bg-sev-critical/10 px-3 py-2 text-small text-sevfg-critical">
+              {error}
+            </p>
+          )}
+          <Field label={useRecovery ? "Recovery code" : "Authentication code"}>
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoComplete="one-time-code"
+                inputMode={useRecovery ? "text" : "numeric"}
+                autoFocus
+                className="font-mono tracking-[0.2em]"
+                aria-describedby={describedBy}
+                aria-invalid={invalid}
+              />
+            )}
+          </Field>
+          <Button type="submit" variant="primary" className="w-full" loading={busy}>
+            Verify and sign in
+          </Button>
+        </form>
+        <div className="mt-6 flex flex-wrap justify-between gap-2 text-small">
+          <button
+            type="button"
+            className="font-medium text-accent-fg hover:underline"
+            onClick={() => {
+              setUseRecovery((v) => !v);
+              setCode("");
+              setError(null);
+            }}
+          >
+            {useRecovery ? "Use the authenticator app" : "Use a recovery code"}
+          </button>
+          <button type="button" className="text-fg-2 hover:text-fg-1" onClick={() => setChallenge(null)}>
+            Start over
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title="Sign in" subtitle="Welcome back. Use your work email.">

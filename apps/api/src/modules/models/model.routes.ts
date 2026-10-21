@@ -16,8 +16,10 @@ const versionParams = z.object({ version: z.string().regex(/^[A-Za-z0-9._-]{1,10
 export interface ModelRouteDeps {
   ml: MlClient;
   scoring: ScoringService;
-  /** Starts a scoring run in the background. */
-  scheduleScoring: (orgId: Types.ObjectId) => void;
+  /** Queues a scoring run (durable with Redis). */
+  scheduleScoring: (orgId: Types.ObjectId) => Promise<void>;
+  /** True while a scoring job for the org is queued or running, in any worker. */
+  scoringBusy: (orgId: Types.ObjectId) => Promise<boolean>;
 }
 
 async function activeFor(orgId: Types.ObjectId): Promise<Record<string, string>> {
@@ -78,7 +80,7 @@ export function modelRoutes(config: AppConfig, deps: ModelRouteDeps): PolicyRout
       const previous = (await activeFor(orgId))[model.schema] ?? null;
       await Org.updateOne({ _id: orgId }, { $set: { [`settings.activeModels.${model.schema}`]: version } });
       await auditFromRequest(req, "model.activate", { type: "model", id: version }, { schema: model.schema, previous });
-      deps.scheduleScoring(orgId);
+      await deps.scheduleScoring(orgId);
       res.json({ schema: model.schema, active: version, previous, versionWarnings: model.versionWarnings });
     }),
   );
@@ -104,13 +106,21 @@ export function modelRoutes(config: AppConfig, deps: ModelRouteDeps): PolicyRout
     "stats:read",
     ah(async (req, res) => {
       const { orgId } = authOf(req);
-      const rows = await Flow.aggregate<{ _id: { schema: string; status: string }; n: number }>([
-        { $match: { orgId } },
-        { $group: { _id: { schema: "$featureSchema", status: "$scoreStatus" }, n: { $sum: 1 } } },
-      ]);
+      // One count per (schema, status), each answered from the {orgId, scoreStatus, featureSchema} index
+      // instead of grouping every flow of the org (seconds at millions of flows).
+      const rows = (
+        await Promise.all(
+          FEATURE_SCHEMA_IDS.flatMap((schema) =>
+            (["pending", "scored", "error"] as const).map(async (status) => ({
+              _id: { schema, status },
+              n: await Flow.countDocuments({ orgId, scoreStatus: status, featureSchema: schema }),
+            })),
+          ),
+        )
+      ).filter((x) => x.n > 0);
       const active = await activeFor(orgId);
       res.json({
-        running: deps.scoring.isRunning(orgId),
+        running: deps.scoring.isRunning(orgId) || (await deps.scoringBusy(orgId)),
         mlConfigured: Boolean(config.ml.url),
         schemas: FEATURE_SCHEMA_IDS.map((schema) => {
           const of = (status: string) => rows.find((x) => x._id.schema === schema && x._id.status === status)?.n ?? 0;
@@ -128,7 +138,7 @@ export function modelRoutes(config: AppConfig, deps: ModelRouteDeps): PolicyRout
       const { orgId } = authOf(req);
       if (!config.ml.url) throw new AppError("ML_UNAVAILABLE", 503, "ML service is not configured (set ML_SERVICE_URL)");
       await auditFromRequest(req, "scoring.run", { type: "org", id: String(orgId) });
-      deps.scheduleScoring(orgId);
+      await deps.scheduleScoring(orgId);
       res.status(202).json({ started: true });
     }),
   );

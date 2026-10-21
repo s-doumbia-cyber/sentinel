@@ -12,10 +12,16 @@ interface AuthValue {
   orgs: OrgMembership[];
   activeOrg: OrgMembership | null;
   role: Role | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves with a challenge when the account uses MFA; `verifyMfa` then completes the sign-in. */
+  login: (email: string, password: string) => Promise<{ mfaToken: string } | null>;
+  verifyMfa: (mfaToken: string, answer: { code: string } | { recoveryCode: string }) => Promise<{ recoveryCodesLeft: number }>;
   register: (input: { name: string; email: string; password: string; orgName?: string }) => Promise<void>;
   logout: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
+  /** Creates the account from an invitation and signs in, landing in the invited org. */
+  acceptInvite: (input: { token: string; name: string; password: string }) => Promise<void>;
+  /** Re-reads the account and memberships (after joining or leaving an org). */
+  reloadSession: (preferredOrgId?: string) => Promise<void>;
   setUser: (user: User) => void;
   /** Cosmetic only: the API enforces every permission. */
   can: (action: Action) => boolean;
@@ -117,9 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeOrg,
       role,
       async login(email, password) {
-        const res = await api<AuthResponse>("/auth/login", { method: "POST", body: { email, password } });
+        const res = await api<AuthResponse | { mfaRequired: true; mfaToken: string }>("/auth/login", { method: "POST", body: { email, password } });
+        if ("mfaRequired" in res) return { mfaToken: res.mfaToken };
         setAccessToken(res.accessToken);
         adopt(res.user, res.orgs);
+        return null;
+      },
+      async verifyMfa(mfaToken, answer) {
+        const res = await api<AuthResponse & { recoveryCodesLeft: number }>("/auth/mfa/verify", { method: "POST", body: { mfaToken, ...answer } });
+        setAccessToken(res.accessToken);
+        adopt(res.user, res.orgs);
+        return { recoveryCodesLeft: res.recoveryCodesLeft };
       },
       async register(input) {
         const res = await api<AuthResponse>("/auth/register", { method: "POST", body: input });
@@ -132,6 +146,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await api("/auth/logout", { method: "POST", csrf: true });
         } finally {
           reset();
+        }
+      },
+      async acceptInvite(input) {
+        const res = await api<AuthResponse & { joinedOrgId: string }>("/invites/accept", { method: "POST", body: input });
+        setAccessToken(res.accessToken);
+        rememberOrg(res.joinedOrgId);
+        adopt(res.user, res.orgs);
+      },
+      async reloadSession(preferredOrgId) {
+        // Without X-Org-Id the API answers for the oldest remaining membership.
+        setActiveOrg(null);
+        rememberOrg(preferredOrgId ?? null);
+        queryClient.clear();
+        try {
+          const me = await api<MeResponse>("/me");
+          adopt(me.user, me.orgs);
+        } catch {
+          // No membership left anywhere: nothing in the app is reachable, so sign out.
+          try {
+            await api("/auth/logout", { method: "POST", csrf: true });
+          } finally {
+            reset();
+          }
         }
       },
       async switchOrg(orgId) {

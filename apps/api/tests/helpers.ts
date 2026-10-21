@@ -9,6 +9,7 @@ import type { Role } from "@sentinel/shared";
 import { createApp, type SentinelApp } from "../src/app.js";
 import { loadConfig } from "../src/config/index.js";
 import { signAccessToken } from "../src/lib/crypto.js";
+import type { JobQueue } from "../src/lib/jobs.js";
 import { createLogger } from "../src/lib/logger.js";
 import { AuthSession, Membership, User } from "../src/models/identity.js";
 import type { MlClient, ModelDetail, PredictResponse, ReferenceHistogram } from "../src/modules/models/ml.client.js";
@@ -23,11 +24,13 @@ export function testConfig(extra: Record<string, string> = {}) {
     MONGO_URI: "mongodb://unused-in-tests",
     JWT_ACCESS_SECRET: TEST_SECRET,
     CORS_ORIGINS: "http://localhost:5173",
+    // Retries stay on (attempts 3) but without the production backoff.
+    JOB_BACKOFF_MS: "5",
     ...extra,
   });
 }
 
-export function buildApp(opts: { ml?: MlClient; authRateLimit?: { windowMs: number; max: number } } = {}): SentinelApp {
+export function buildApp(opts: { ml?: MlClient; authRateLimit?: { windowMs: number; max: number }; queue?: JobQueue } = {}): SentinelApp {
   const config = testConfig(opts.ml ? { ML_SERVICE_URL: "http://ml.test" } : {});
   return createApp({ config, logger: createLogger("silent"), ...opts });
 }

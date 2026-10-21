@@ -13,10 +13,17 @@ export interface AuthContext {
   role: Role;
 }
 
+/** The signed-in user, set even when they belong to no org (policy `account`). */
+export interface AccountContext {
+  userId: Types.ObjectId;
+  sessionId: Types.ObjectId;
+}
+
 declare module "express-serve-static-core" {
   interface Request {
     id: string;
     auth?: AuthContext;
+    account?: AccountContext;
   }
 }
 
@@ -24,6 +31,11 @@ declare module "express-serve-static-core" {
 export function authOf(req: Request): AuthContext {
   if (!req.auth) throw AppError.unauthenticated();
   return req.auth;
+}
+
+export function accountOf(req: Request): AccountContext {
+  if (!req.account) throw AppError.unauthenticated();
+  return req.account;
 }
 
 const REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
@@ -44,11 +56,14 @@ export function ah(fn: (req: Request, res: Response, next: NextFunction) => Prom
   };
 }
 
-type Part = "body" | "query" | "params";
+export type Part = "body" | "query" | "params";
+
+/** Remembers which schema a `validate()` handler applies, so the OpenAPI document is generated from the same zod schemas. */
+export const validatorSchemas = new WeakMap<RequestHandler, { part: Part; schema: ZodType<unknown, ZodTypeDef, unknown> }>();
 
 /** Parses `req[part]` with zod; the parsed value replaces the raw one. */
 export function validate<T>(part: Part, schema: ZodType<T, ZodTypeDef, unknown>): RequestHandler {
-  return (req, _res, next) => {
+  const handler: RequestHandler = (req, _res, next) => {
     const result = schema.safeParse(req[part]);
     if (!result.success) {
       return next(
@@ -62,6 +77,8 @@ export function validate<T>(part: Part, schema: ZodType<T, ZodTypeDef, unknown>)
     (req as unknown as Record<Part, unknown>)[part] = result.data;
     next();
   };
+  validatorSchemas.set(handler, { part, schema });
+  return handler;
 }
 
 /** Typed accessor for data validated by `validate(part, schema)`. */

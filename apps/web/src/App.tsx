@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState, Skeleton } from "@/components/ui/States";
 import { useAuth } from "@/features/auth/AuthContext";
+import { AcceptInvitePage } from "@/features/auth/AcceptInvitePage";
 import { LoginPage, RegisterPage } from "@/features/auth/AuthPages";
 
 // Route-level code splitting (§11): charts and heavy pages load on demand.
@@ -21,6 +22,7 @@ const IdentitySourcesPage = lazy(() => import("@/features/identity/IdentitySourc
 const ValidationPage = lazy(() => import("@/features/validation/ValidationPage").then((m) => ({ default: m.ValidationPage })));
 const TeamPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.TeamPage })));
 const AuditPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.AuditPage })));
+const SystemPage = lazy(() => import("@/features/system/SystemPage").then((m) => ({ default: m.SystemPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 function PageFallback() {
@@ -58,6 +60,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {/* Public: works signed in (existing account) or not (new account). */}
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
       {/* The report renders without the app chrome so it prints cleanly. */}
       <Route
         path="/incidents/:id/report"
@@ -102,6 +106,14 @@ export default function App() {
             el: (
               <RequireRole action="audit:read">
                 <AuditPage />
+              </RequireRole>
+            ),
+          },
+          {
+            path: "/system",
+            el: (
+              <RequireRole action="jobs:read">
+                <SystemPage />
               </RequireRole>
             ),
           },

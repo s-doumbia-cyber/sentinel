@@ -13,6 +13,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  /** Second factor (TOTP) is on for this account. */
+  mfaEnabled?: boolean;
   preferences: UserPreferences;
 }
 
@@ -251,6 +253,7 @@ export interface Member {
   email: string;
   role: Role;
   joinedAt: string;
+  mfaEnabled?: boolean;
 }
 
 export interface AuditEntry {

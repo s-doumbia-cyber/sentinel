@@ -9,6 +9,7 @@ import type { AppConfig } from "../../config/index.js";
 import { AppError } from "../../lib/errors.js";
 import { ah, authOf, parsed, validate } from "../../lib/http.js";
 import { PolicyRouter } from "../../lib/routes.js";
+import { MULTIPART_LIMITS, assertTextFile } from "../../lib/uploads.js";
 import { IdentityImport, IdentityObservation } from "../../models/context.js";
 import { auditFromRequest } from "../audit/audit.service.js";
 import { identityHistoryForAddress, lookupIdentity } from "./identity.context.js";
@@ -24,7 +25,7 @@ export function identityRoutes(config: AppConfig): PolicyRouter {
       destination: tmpdir(),
       filename: (_req, _file, cb) => cb(null, `sentinel-identity-${randomBytes(12).toString("hex")}.csv`),
     }),
-    limits: { fileSize: MAX_IDENTITY_BYTES, files: 1 },
+    limits: { ...MULTIPART_LIMITS, fileSize: MAX_IDENTITY_BYTES },
     fileFilter: (_req, file, cb) => {
       if (path.extname(file.originalname).toLowerCase() !== ".csv") return cb(new AppError("UNSUPPORTED_MEDIA", 415, "Only .csv files are accepted"));
       cb(null, true);
@@ -63,6 +64,7 @@ export function identityRoutes(config: AppConfig): PolicyRouter {
       const { orgId, userId } = authOf(req);
       if (!req.file) throw AppError.validation("No file uploaded. Send multipart/form-data with a field named 'file'.");
       try {
+        await assertTextFile(req.file.path);
         const imp = await importIdentityCsv(orgId, userId, req.file.path, path.basename(req.file.originalname).slice(0, 255));
         await auditFromRequest(req, "identity.import", { type: "identity_import", id: String(imp._id) }, {
           name: imp.name,

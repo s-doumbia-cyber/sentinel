@@ -9,6 +9,8 @@ let mongod: MongoMemoryServer | undefined;
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+  // For tests that start a second process against the same throwaway database.
+  process.env.SENTINEL_TEST_MONGO_URI = mongod.getUri();
   await Promise.all(Object.values(mongoose.models).map((m) => m.syncIndexes()));
 });
 

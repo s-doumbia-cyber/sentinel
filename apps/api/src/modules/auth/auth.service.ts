@@ -11,6 +11,7 @@ import {
   safeEqualHex,
   sha256,
   signAccessToken,
+  signMfaToken,
   verifyPassword,
 } from "../../lib/crypto.js";
 import { AppError } from "../../lib/errors.js";
@@ -40,6 +41,7 @@ interface UserLike {
     theme?: string | null;
     density?: string | null;
   } | null;
+  mfa?: { enabled?: boolean | null } | null;
 }
 
 export function toUserResponse(user: UserLike) {
@@ -48,6 +50,7 @@ export function toUserResponse(user: UserLike) {
     id: String(user._id),
     name: user.name,
     email: user.email,
+    mfaEnabled: Boolean(user.mfa?.enabled),
     preferences: {
       emailAlerts: prefs.emailAlerts ?? true,
       pushAlerts: prefs.pushAlerts ?? true,
@@ -79,7 +82,7 @@ function slugify(name: string): string {
   return `${base || "org"}-${randomBytes(3).toString("hex")}`;
 }
 
-async function issueTokens(config: AppConfig, userId: Types.ObjectId, req: Request): Promise<IssuedTokens> {
+export async function issueTokens(config: AppConfig, userId: Types.ObjectId, req: Request): Promise<IssuedTokens> {
   const secret = newRefreshSecret();
   const refreshExpiresAt = new Date(Date.now() + config.auth.refreshTtlDays * 86_400_000);
   const session = await AuthSession.create({
@@ -115,17 +118,36 @@ export async function register(
   return { user, tokens };
 }
 
+let dummyHash: Promise<string> | null = null;
+
+/**
+ * Password step of sign-in. With MFA on, it returns a 5-minute challenge token
+ * instead of a session; `finishLogin` runs once the second factor is verified.
+ */
 export async function login(config: AppConfig, req: Request, input: { email: string; password: string }) {
   const user = await User.findOne({ email: input.email });
-  // Same message for unknown email and wrong password.
-  if (!user || !(await verifyPassword(user.passwordHash, input.password))) {
+  if (!user) {
+    // Same work and same message for an unknown email as for a wrong password (no account enumeration by timing).
+    dummyHash ??= hashPassword(randomBytes(16).toString("hex"));
+    await verifyPassword(await dummyHash, input.password);
     throw AppError.unauthenticated("Invalid email or password");
   }
+  if (!(await verifyPassword(user.passwordHash, input.password))) throw AppError.unauthenticated("Invalid email or password");
   if (isLegacyHash(user.passwordHash)) {
     // Transparent upgrade of bcrypt hashes from the legacy backend to argon2id.
     user.passwordHash = await hashPassword(input.password);
     await user.save();
   }
+  if (user.mfa?.enabled) {
+    return { mfaRequired: true as const, mfaToken: signMfaToken(String(user._id), config.auth.accessSecret), user };
+  }
+  return { mfaRequired: false as const, ...(await finishLogin(config, req, user._id, { factor: "password" })) };
+}
+
+/** Issues the session and records the sign-in, after every required factor passed. */
+export async function finishLogin(config: AppConfig, req: Request, userId: Types.ObjectId, meta: Record<string, unknown>) {
+  const user = await User.findById(userId).lean();
+  if (!user) throw AppError.unauthenticated();
   const orgs = await listMyOrgs(user._id);
   const firstOrg = orgs[0];
   if (firstOrg) {
@@ -134,6 +156,7 @@ export async function login(config: AppConfig, req: Request, input: { email: str
       actorId: user._id,
       action: "auth.login",
       target: { type: "user", id: String(user._id) },
+      meta,
     });
   }
   const tokens = await issueTokens(config, user._id, req);

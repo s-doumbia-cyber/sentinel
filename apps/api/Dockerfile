@@ -22,6 +22,8 @@ COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/apps/api/dist apps/api/dist
 # Synthetic DEMO scenario read by the demo-seed service (docker compose --profile demo).
 COPY data/demo data/demo
+# Upload directory for the import queue (mounted as a volume in docker-compose.yml).
+RUN mkdir -p /var/lib/sentinel/uploads && chown node:node /var/lib/sentinel/uploads
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=10s --timeout=3s --retries=6 CMD node -e "fetch('http://127.0.0.1:4000/api/v1/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

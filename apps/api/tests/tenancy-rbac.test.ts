@@ -88,14 +88,14 @@ describe("tenant isolation", () => {
 });
 
 describe("RBAC matrix (role × route)", () => {
-  const actionRoutes = sa.routes.filter((r): r is typeof r & { policy: Action } => r.policy !== "public" && r.policy !== "self");
+  const actionRoutes = sa.routes.filter((r): r is typeof r & { policy: Action } => !["public", "self", "account"].includes(r.policy));
 
   it("declares a policy on every route, and every mutating route is protected", () => {
     expect(sa.routes.length).toBeGreaterThan(20);
     for (const r of sa.routes) {
       if (r.mutating && r.policy === "public") {
         // Only the pre-authentication auth endpoints may be public.
-        expect(r.path, `${r.method} ${r.path}`).toMatch(/\/auth\/(register|login|refresh|logout)$/);
+        expect(r.path, `${r.method} ${r.path}`).toMatch(/\/(auth\/(register|login|refresh|logout)|auth\/mfa\/verify|invites\/(lookup|accept))$/);
       }
     }
   });
