@@ -106,6 +106,18 @@ docker compose --profile train run --rm ml-train   # train the sample model insi
 docker compose up --build        # http://localhost:8080
 ```
 
+One-command demo (stack + sample model + synthetic DEMO workspace):
+
+```powershell
+docker compose --profile demo up --build
+docker compose --profile demo logs demo-seed   # the three sign-in accounts, printed once
+```
+
+The `demo` profile adds two one-shot services: `ml-train-demo` trains the small sample model into the
+stack's own volume (skipped when it exists) and `demo-seed` creates the DEMO workspace in the stack's
+own MongoDB (it refuses any other host). It is idempotent and never activates a model: activate the
+sample model on the Models page, then run scoring. `docker compose --profile demo down -v` resets it.
+
 MongoDB is not published on the host, so the stack does not collide with a local MongoDB on 27017.
 
 ## Coming from the old `cyber-dashboard`

@@ -32,9 +32,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .data import load_csvs, resolve_paths
+from .holdout import evaluate_holdout, parse_holdout_config, select_holdout_groups
 from .labels import CRITICAL_CLASSES
 from .metrics import evaluate, min_recall
 from .model_card import render_model_card
+from .novelty import BENIGN_LABEL, NOVELTY_FILE, DEFAULT_QUANTILE, evaluate_novelty, fit_novelty
+from .reference import REFERENCE_FILE, build_reference
 from .schemas import load_feature_schema, schemas_dir
 
 log = logging.getLogger("sentinel_ml.train")
@@ -95,6 +98,26 @@ def _group_evaluation(X, y, groups, algorithm, class_weight, classes, seed) -> d
     return {"status": "ok", **note, "macroF1": m["macroF1"], "testRows": m["testRows"], "perClass": m["perClass"]}
 
 
+def _train_novelty(cfg: dict | None, X_trval, y_trval, X_test, y_test, seed: int, out: Path) -> dict:
+    """Optional IsolationForest on benign training rows; its failure never blocks the classifier."""
+    if not cfg or not cfg.get("enabled"):
+        return {"status": "not_configured"}
+    quantile = float(cfg.get("quantile", DEFAULT_QUANTILE))
+    try:
+        model = fit_novelty(X_trval[(y_trval == BENIGN_LABEL).to_numpy()], seed, quantile)
+    except ValueError as exc:
+        log.warning("Novelty detector not trained: %s", exc)
+        return {"status": "not_possible", "reason": str(exc)}
+    joblib.dump(model, out / NOVELTY_FILE)
+    return {
+        "status": "ok",
+        "quantile": quantile,
+        "threshold": round(model.threshold, 6),
+        "trainedOnRows": model.rows,
+        **evaluate_novelty(model, X_test, y_test),
+    }
+
+
 def train(config_path: Path, csv_override: list[str] | None = None, output_override: Path | None = None) -> Path:
     config_path = config_path.resolve()
     base = config_path.parent
@@ -108,10 +131,21 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     algorithms = cfg.get("models", list(ALGORITHMS))
     class_weights = cfg.get("class_weights", ["none", "balanced"])
     critical_min = float(cfg.get("selection", {}).get("critical_min_recall", 0.5))
+    holdout_cfg = parse_holdout_config(cfg.get("split", {}).get("holdout"))
     load_feature_schema(schema_id)
 
     paths = resolve_paths(cfg["data"]["csv"], base)
-    X, y, groups, report = load_csvs(paths, schema_id, cfg["data"].get("max_rows_per_class"), seed)
+    X, y, groups, report, hold_values = load_csvs(
+        paths, schema_id, cfg["data"].get("max_rows_per_class"), seed, holdout_by=holdout_cfg["by"] if holdout_cfg else None
+    )
+    held_out = None
+    if holdout_cfg and hold_values is not None:
+        held_groups = select_holdout_groups(hold_values, holdout_cfg["groups"], holdout_cfg["fraction"], seed)
+        in_holdout = hold_values.isin(held_groups)
+        # The shipped model never sees these rows, so the held-out scores describe it directly.
+        held_out = {"X": X[in_holdout].reset_index(drop=True), "y": y[in_holdout].reset_index(drop=True), "groups": hold_values[in_holdout].reset_index(drop=True), "names": held_groups}
+        X, y, groups = X[~in_holdout].reset_index(drop=True), y[~in_holdout].reset_index(drop=True), groups[~in_holdout].reset_index(drop=True)
+        log.info("Holding out %s %s: %d rows kept for testing, %d for training", holdout_cfg["by"], held_groups, len(held_out["y"]), len(y))
     counts = y.value_counts()
     excluded = sorted(counts[counts < MIN_ROWS_PER_CLASS].index.tolist())
     if excluded:
@@ -160,6 +194,12 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     model_classes = [str(c) for c in final.classes_]
     test_metrics = evaluate(final, X_test, y_test, model_classes)
     group_eval = _group_evaluation(X, y, groups, best["algorithm"], best["classWeight"], classes, seed)
+    held_eval = {"status": "not_configured"}
+    if held_out is not None and holdout_cfg is not None:
+        held_eval = evaluate_holdout(
+            final, model_classes, held_out["X"], held_out["y"], held_out["groups"],
+            by=holdout_cfg["by"], held_groups=held_out["names"], train_classes=model_classes, train_rows=len(y),
+        )
 
     now = datetime.now(timezone.utc)
     version = f"{cfg.get('version_prefix', 'model')}-{now.strftime('%Y.%m.%d-%H%M%S')}"
@@ -173,10 +213,18 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     env = lib_versions()
     (out / "env.json").write_text(json.dumps(env, indent=2), encoding="utf-8")
 
+    # Baseline for the drift job: the distribution of the rows the model was fitted on.
+    reference = build_reference(X_trval, y_trval, schema_id)
+    (out / REFERENCE_FILE).write_text(json.dumps(reference, separators=(",", ":")), encoding="utf-8")
+
+    novelty = _train_novelty(cfg.get("novelty"), X_trval, y_trval, X_test, y_test, seed, out)
+
     metrics = {
         "test": test_metrics,
         "selection": {"candidates": candidates, "chosen": best, "criticalMinRecall": critical_min, "warning": selection_warning},
         "groupAware": group_eval,
+        "heldOut": held_eval,
+        "novelty": novelty,
         "split": {"train": int(len(y_train)), "validation": int(len(y_val)), "test": int(len(y_test)), "seed": seed},
     }
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -196,9 +244,12 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
             "rows": int(len(y)),
             "classCounts": {str(k): int(v) for k, v in y.value_counts().sort_index().items()},
             "excludedClasses": excluded,
+            "heldOut": None if held_out is None else {"by": holdout_cfg["by"], "groups": held_out["names"], "rows": int(len(held_out["y"]))},
             "description": cfg.get("description", ""),
         },
         "libVersions": env,
+        "reference": {"rows": reference["rows"], "bins": reference["bins"]},
+        "novelty": None if novelty["status"] != "ok" else {k: novelty[k] for k in ("quantile", "threshold", "trainedOnRows", "benignFalsePositiveRate", "perClass")},
         "sha256": _sha256(out / "model.joblib"),
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

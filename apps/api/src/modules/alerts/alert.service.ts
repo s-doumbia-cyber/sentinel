@@ -120,8 +120,16 @@ export class AlertService {
    * alert; the verdict stays on the flow.
    */
   async recordModelVerdicts(orgId: Types.ObjectId, policy: AlertPolicy, verdicts: ModelVerdictEvidence[]): Promise<number> {
-    const malicious = verdicts.filter((v) => v.label !== "Normal");
+    let malicious = verdicts.filter((v) => v.label !== "Normal");
     if (!malicious.length) return 0;
+    if (policy.frozenKeys?.size) {
+      // Evidence of an alert an analyst already handled: marked as processed, the alert stays as it is.
+      const isFrozen = (v: ModelVerdictEvidence) => policy.frozenKeys?.has(alertDedupeKey(orgId, v.sourceIp, v.destinationIp, v.label, v.timestamp)) ?? false;
+      const frozenIds = malicious.filter(isFrozen).map((v) => v.flowId);
+      if (frozenIds.length) await Flow.updateMany({ orgId, _id: { $in: frozenIds }, alertedAt: null }, { $set: { alertedAt: new Date() } });
+      malicious = malicious.filter((v) => !isFrozen(v));
+      if (!malicious.length) return 0;
+    }
     const reasonOf = (v: ModelVerdictEvidence) =>
       isAllowlisted(policy, v.sourceIp, v.destinationIp) ? "allowlisted" : v.confidence < policy.modelAlertMinConfidence ? "below_min_confidence" : null;
     for (const reason of ["allowlisted", "below_min_confidence"] as const) {
@@ -178,6 +186,9 @@ export class AlertService {
     flowIds: Types.ObjectId[],
   ): Promise<"created" | "updated" | "skipped" | "suppressed"> {
     const g = hit.group;
+    const srcIp = typeof g.sourceIp === "string" ? g.sourceIp : null;
+    const dstIp = typeof g.destinationIp === "string" ? g.destinationIp : null;
+    if (policy.frozenKeys?.has(alertDedupeKey(orgId, srcIp, dstIp, rule.alertType, hit.windowEnd))) return "skipped";
     if (isAllowlisted(policy, typeof g.sourceIp === "string" ? g.sourceIp : null, typeof g.destinationIp === "string" ? g.destinationIp : null)) return "suppressed";
     return this.upsert(
       {

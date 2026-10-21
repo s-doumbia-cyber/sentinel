@@ -3,7 +3,7 @@ import { STARTER_RULE_UPGRADES, STARTER_RULES, ruleDefinitionSchema, type RuleDe
 import type { Logger } from "../../lib/logger.js";
 import { Flow, Rule } from "../../models/tenant.js";
 import { AlertService } from "../alerts/alert.service.js";
-import { loadAlertPolicy } from "../alerts/policy.js";
+import { loadAlertPolicy, type AlertPolicy } from "../alerts/policy.js";
 import { writeAudit } from "../audit/audit.service.js";
 import { RuleEvaluator, type RuleFlow, type RuleHit } from "./evaluator.js";
 
@@ -138,11 +138,11 @@ export class RuleService {
   }
 
   /** Runs every enabled rule over the scope and turns hits into alerts. */
-  async run(orgId: Types.ObjectId, scope: FlowScope) {
+  async run(orgId: Types.ObjectId, scope: FlowScope, policyOverride?: AlertPolicy) {
     await ensureStarterRules(orgId);
     const rules = (await Rule.find({ orgId, enabled: true }).lean()).map(definitionOf);
     if (!rules.length) return { scanned: 0, hits: 0, created: 0, suppressed: 0 };
-    const policy = await loadAlertPolicy(orgId);
+    const policy = policyOverride ?? (await loadAlertPolicy(orgId));
     const { scanned, hits } = await this.evaluate(orgId, rules, scope);
     let created = 0;
     let suppressed = 0;

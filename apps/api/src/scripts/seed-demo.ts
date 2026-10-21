@@ -5,6 +5,7 @@
  *   npm run seed:demo                                  dry run: shows the target and what would be created
  *   npm run seed:demo -- --yes                         creates it in MONGO_URI (apps/api/.env)
  *   npm run seed:demo -- --mongo-uri <uri> --yes       creates it in another database
+ *   --require-host <name>                              refuse any database host other than <name> (used by Docker Compose)
  *
  * It adds one organisation ("sentinel-demo") and three accounts (Owner, Analyst,
  * Viewer) with random passwords printed once, imports data/demo/*.csv tagged DEMO
@@ -16,7 +17,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import { createLogger } from "../lib/logger.js";
-import { DEMO_ORG_NAME, DEMO_ORG_SLUG, DEMO_USERS, DemoExistsError, inspectDemo, seedDemo } from "../modules/demo/demo.seed.js";
+import { DEMO_ORG_NAME, DEMO_ORG_SLUG, DEMO_USERS, DemoExistsError, assertSeedHost, inspectDemo, seedDemo } from "../modules/demo/demo.seed.js";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -41,6 +42,7 @@ async function main() {
   const identityCsv = fileURLToPath(new URL("../../../../data/demo/demo-identity.csv", import.meta.url));
   if (!existsSync(flowsCsv) || !existsSync(identityCsv)) throw new Error("Demo files are missing: run `npm run demo:data` first.");
 
+  assertSeedHost(uri, arg("--require-host"));
   console.log(`Target database: ${describeTarget(uri)}`);
   await mongoose.connect(uri);
   const state = await inspectDemo();
@@ -64,7 +66,7 @@ async function main() {
   console.log(`\nDemo workspace created: ${result.counts.flows} flows (DEMO), ${result.counts.alerts} alerts, ${result.counts.incidents} incident(s), ${result.counts.identityRecords} identity records.`);
   console.log("\nSign-in details (shown once; store them now, they cannot be recovered):");
   for (const c of result.credentials) console.log(`  ${c.role.padEnd(8)} ${c.email}  ${c.password}`);
-  console.log("\nNo ML service was involved: flows stay unscored until you activate a model on the Models page.");
+  console.log("\nNo ML service was involved: flows stay unscored until you activate a model on the Models page and run scoring.");
   await mongoose.disconnect();
 }
 

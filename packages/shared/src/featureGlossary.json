@@ -1,0 +1,226 @@
+{
+  "schema": "cicids2017-v1",
+  "description": "Plain-language labels for the model features, shown next to explanations. They describe what a statistic measures; they do not say whether a value is good or bad.",
+  "features": {
+    "Flow Duration": {
+      "label": "How long the connection lasted",
+      "unit": "microseconds",
+      "meaning": "From the first to the last packet of the flow."
+    },
+    "Total Fwd Packets": {
+      "label": "Packets sent by the initiator",
+      "unit": "packets",
+      "meaning": "Packets going from the connection's initiator to the other side."
+    },
+    "Total Backward Packets": {
+      "label": "Packets sent in reply",
+      "unit": "packets",
+      "meaning": "Packets coming back from the responder."
+    },
+    "Total Length of Fwd Packets": {
+      "label": "Data sent by the initiator",
+      "unit": "bytes",
+      "meaning": "Total payload bytes sent by the initiator."
+    },
+    "Total Length of Bwd Packets": {
+      "label": "Data sent in reply",
+      "unit": "bytes",
+      "meaning": "Total payload bytes sent back by the responder."
+    },
+    "Fwd Packet Length Max": {
+      "label": "Largest packet sent",
+      "unit": "bytes",
+      "meaning": "Size of the biggest packet from the initiator."
+    },
+    "Fwd Packet Length Min": {
+      "label": "Smallest packet sent",
+      "unit": "bytes",
+      "meaning": "Size of the smallest packet from the initiator."
+    },
+    "Fwd Packet Length Mean": {
+      "label": "Typical packet size sent",
+      "unit": "bytes",
+      "meaning": "Average size of the initiator's packets."
+    },
+    "Fwd Packet Length Std": {
+      "label": "Variation in sent packet size",
+      "unit": "bytes",
+      "meaning": "How much the initiator's packet sizes vary; 0 means all equal."
+    },
+    "Bwd Packet Length Max": {
+      "label": "Largest reply packet",
+      "unit": "bytes",
+      "meaning": "Size of the biggest packet from the responder."
+    },
+    "Bwd Packet Length Min": {
+      "label": "Smallest reply packet",
+      "unit": "bytes",
+      "meaning": "Size of the smallest packet from the responder."
+    },
+    "Bwd Packet Length Mean": {
+      "label": "Typical reply packet size",
+      "unit": "bytes",
+      "meaning": "Average size of the responder's packets."
+    },
+    "Bwd Packet Length Std": {
+      "label": "Variation in reply packet size",
+      "unit": "bytes",
+      "meaning": "How much the responder's packet sizes vary; 0 means all equal."
+    },
+    "Flow Bytes/s": {
+      "label": "Data rate",
+      "unit": "bytes/s",
+      "meaning": "Bytes per second over the whole flow; very high values suggest floods or bulk transfers."
+    },
+    "Flow Packets/s": {
+      "label": "Packets per second",
+      "unit": "packets/s",
+      "meaning": "Packet rate over the whole flow; very high values suggest floods or scans."
+    },
+    "Flow IAT Mean": {
+      "label": "Average gap between packets",
+      "unit": "microseconds",
+      "meaning": "Mean time between two consecutive packets in either direction."
+    },
+    "Flow IAT Std": {
+      "label": "Irregularity of packet gaps",
+      "unit": "microseconds",
+      "meaning": "How much the gap between packets varies; low values mean machine-like regularity."
+    },
+    "Flow IAT Max": {
+      "label": "Longest pause between packets",
+      "unit": "microseconds",
+      "meaning": "Longest silence inside the flow."
+    },
+    "Flow IAT Min": {
+      "label": "Shortest gap between packets",
+      "unit": "microseconds",
+      "meaning": "Smallest time between two consecutive packets."
+    },
+    "Fwd IAT Total": {
+      "label": "Time spent sending",
+      "unit": "microseconds",
+      "meaning": "Sum of the gaps between the initiator's packets."
+    },
+    "Fwd IAT Mean": {
+      "label": "Average gap between sent packets",
+      "unit": "microseconds",
+      "meaning": "Mean time between two packets from the initiator."
+    },
+    "Bwd IAT Total": {
+      "label": "Time spent replying",
+      "unit": "microseconds",
+      "meaning": "Sum of the gaps between the responder's packets."
+    },
+    "Bwd IAT Mean": {
+      "label": "Average gap between reply packets",
+      "unit": "microseconds",
+      "meaning": "Mean time between two packets from the responder."
+    },
+    "Fwd PSH Flags": {
+      "label": "Push flags sent",
+      "unit": "count",
+      "meaning": "Times the initiator set the TCP push flag (deliver data now)."
+    },
+    "Fwd Packets/s": {
+      "label": "Sending packet rate",
+      "unit": "packets/s",
+      "meaning": "Packets per second sent by the initiator."
+    },
+    "Bwd Packets/s": {
+      "label": "Reply packet rate",
+      "unit": "packets/s",
+      "meaning": "Packets per second sent back by the responder."
+    },
+    "Min Packet Length": {
+      "label": "Smallest packet in the flow",
+      "unit": "bytes",
+      "meaning": "Size of the smallest packet in either direction."
+    },
+    "Max Packet Length": {
+      "label": "Largest packet in the flow",
+      "unit": "bytes",
+      "meaning": "Size of the biggest packet in either direction."
+    },
+    "Packet Length Mean": {
+      "label": "Typical packet size",
+      "unit": "bytes",
+      "meaning": "Average packet size over the whole flow."
+    },
+    "Packet Length Std": {
+      "label": "Variation in packet size",
+      "unit": "bytes",
+      "meaning": "How much packet sizes vary over the whole flow."
+    },
+    "FIN Flag Count": {
+      "label": "Connection-close flags (FIN)",
+      "unit": "count",
+      "meaning": "Packets that politely close a TCP connection."
+    },
+    "SYN Flag Count": {
+      "label": "Connection-open flags (SYN)",
+      "unit": "count",
+      "meaning": "Packets that start a TCP connection; many SYNs and few replies is typical of scans and SYN floods."
+    },
+    "RST Flag Count": {
+      "label": "Connection-reset flags (RST)",
+      "unit": "count",
+      "meaning": "Packets that abruptly refuse or abort a TCP connection."
+    },
+    "PSH Flag Count": {
+      "label": "Push flags (PSH)",
+      "unit": "count",
+      "meaning": "Packets asking the receiver to deliver data immediately."
+    },
+    "ACK Flag Count": {
+      "label": "Acknowledgement flags (ACK)",
+      "unit": "count",
+      "meaning": "Packets acknowledging received data."
+    },
+    "URG Flag Count": {
+      "label": "Urgent flags (URG)",
+      "unit": "count",
+      "meaning": "Packets marked as urgent; rare in normal traffic."
+    },
+    "Down/Up Ratio": {
+      "label": "Download to upload ratio",
+      "unit": "ratio",
+      "meaning": "Data coming back divided by data sent."
+    },
+    "Average Packet Size": {
+      "label": "Average packet size",
+      "unit": "bytes",
+      "meaning": "Mean packet size including headers."
+    },
+    "Init_Win_bytes_forward": {
+      "label": "Initial receive window (initiator)",
+      "unit": "bytes",
+      "meaning": "TCP window the initiator advertised at the start; depends on the operating system and tool."
+    },
+    "Init_Win_bytes_backward": {
+      "label": "Initial receive window (responder)",
+      "unit": "bytes",
+      "meaning": "TCP window the responder advertised at the start."
+    },
+    "act_data_pkt_fwd": {
+      "label": "Packets that carried data (sent)",
+      "unit": "packets",
+      "meaning": "Initiator packets with at least one byte of payload."
+    },
+    "min_seg_size_forward": {
+      "label": "Smallest segment header size (sent)",
+      "unit": "bytes",
+      "meaning": "Minimum TCP header size seen from the initiator."
+    },
+    "Active Mean": {
+      "label": "Average active period",
+      "unit": "microseconds",
+      "meaning": "Mean time the flow was busy before going idle."
+    },
+    "Idle Mean": {
+      "label": "Average idle period",
+      "unit": "microseconds",
+      "meaning": "Mean time the flow stayed silent between active periods."
+    }
+  }
+}

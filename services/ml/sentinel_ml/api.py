@@ -61,6 +61,16 @@ def create_app(artifacts_dir: Path | None = None, token: str | None = None) -> F
         card = (entry.path / "model_card.md").read_text(encoding="utf-8") if (entry.path / "model_card.md").is_file() else None
         return {**entry.summary(), "modelCard": card}
 
+    @app.get("/models/{version}/reference", dependencies=[Depends(check_token)])
+    def get_reference(version: str) -> dict:
+        entry = registry.get(version)
+        if not entry:
+            raise HTTPException(status_code=404, detail=f"Unknown model version {version}")
+        reference = entry.reference()
+        if reference is None:
+            raise HTTPException(status_code=404, detail=f"Model {version} has no reference distribution (trained before drift checks existed); retrain it")
+        return reference
+
     @app.post("/reload", dependencies=[Depends(check_token)])
     def reload() -> dict:
         return {"models": registry.reload()}
@@ -102,6 +112,16 @@ def create_app(artifacts_dir: Path | None = None, token: str | None = None) -> F
                     "probabilities": {c: round(float(p), 6) for c, p in zip(classes, proba[i])},
                 }
             )
+        novelty = entry.novelty()
+        if novelty is not None:
+            # Raw distance from benign training traffic; the caller decides what counts as "unusual".
+            scores = novelty.score(X)
+            for i, r in enumerate(results):
+                r["novelty"] = {
+                    "score": round(float(scores[i]), 6),
+                    "threshold": round(float(novelty.threshold), 6),
+                    "aboveThreshold": bool(scores[i] >= novelty.threshold),
+                }
         if req.explain:
             # Cost control: explain only non-benign or low-confidence verdicts.
             idx = [i for i, r in enumerate(results) if r["label"] != "Normal" or r["confidence"] < EXPLAIN_BELOW_CONFIDENCE]

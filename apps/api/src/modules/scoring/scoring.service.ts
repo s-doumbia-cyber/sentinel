@@ -19,6 +19,16 @@ export interface SchemaRunResult {
   message?: string;
 }
 
+/**
+ * "Unusual behaviour": far from the benign traffic the model learned (novelty
+ * above its threshold) AND not recognised as a known attack with confidence.
+ * Known attacks are also far from benign traffic, so novelty alone would flag
+ * every one of them. The class label is never changed by this.
+ */
+export function isUnusualBehaviour(novelty: { aboveThreshold: boolean } | undefined, label: string, confidence: number, reviewThreshold: number): boolean {
+  return Boolean(novelty?.aboveThreshold) && (label === "Normal" || confidence < reviewThreshold);
+}
+
 export function activeModelsOf(org: { settings?: { activeModels?: unknown } | null } | null): Record<string, string> {
   const m = org?.settings?.activeModels;
   if (!m) return {};
@@ -127,6 +137,8 @@ export class ScoringService {
                   probabilities: r.probabilities,
                   severity: DEFAULT_SEVERITY_BY_CLASS[label],
                   needsReview: r.confidence < threshold,
+                  ...(r.novelty ? { novelty: r.novelty } : {}),
+                  unusualBehaviour: isUnusualBehaviour(r.novelty, label, r.confidence, threshold),
                   topFeatures: (r.topFeatures ?? []).map((t) => ({ name: t.name, contribution: t.contribution, value: t.value })),
                   scoredAt: now,
                 },
@@ -165,8 +177,8 @@ export class ScoringService {
    * Folds already-scored malicious flows that never produced an alert (scored
    * before alerting existed, or migrated) into alerts. Idempotent via `alertedAt`.
    */
-  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<number> {
-    const policy = await loadAlertPolicy(orgId);
+  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId, policyOverride?: AlertPolicy): Promise<number> {
+    const policy = policyOverride ?? (await loadAlertPolicy(orgId));
     let created = 0;
     for (;;) {
       const flows = await Flow.find({

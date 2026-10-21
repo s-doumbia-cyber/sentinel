@@ -9,6 +9,11 @@ export interface AlertPolicy {
   /** Model verdicts below this never create alerts; 0 disables the filter. */
   modelAlertMinConfidence: number;
   allowlist: Cidr[];
+  /**
+   * Dedupe keys of alerts an analyst already acted on. Evidence for these keys is marked
+   * as handled without touching the alert (used only by the re-apply job).
+   */
+  frozenKeys?: ReadonlySet<string>;
 }
 
 export const DEFAULT_POLICY: AlertPolicy = { needsReviewThreshold: 0.6, modelAlertMinConfidence: 0, allowlist: [] };

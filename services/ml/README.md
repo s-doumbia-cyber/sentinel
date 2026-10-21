@@ -38,12 +38,26 @@ services/ml/.venv/bin/python -m sentinel_ml.train --config services/ml/configs/c
 
 - Splits: stratified train / validation / test (seed in the config) plus a group-aware holdout
   by source IP to expose leakage.
+- Optional day-wise validation (`split.holdout` in the config, see `configs/cicids-full.example.yaml`):
+  whole files (capture days) or the values of a CSV column are kept out of training and the shipped
+  model is tested on them. `metrics.json` (`heldOut`) and the model card give per-class precision /
+  recall / F1 / support on the held-out groups, per-group macro-F1, and warnings when a class is
+  absent from the held-out side (no estimate possible) or only appears there (the model cannot know
+  it; those rows are excluded and counted). A holdout pattern that matches nothing is an error.
 - Candidates: logistic regression, random forest, HistGradientBoosting, each with and without
   `class_weight="balanced"`. Selection: best validation macro-F1 among candidates whose recall on
   critical classes (DDoS, Botnet, Heartbleed) reaches the configured floor; ties go to lower latency.
 - Reported on the untouched test set: macro-F1, weighted-F1, MCC, per-class precision / recall /
   F1 / PR-AUC / support (classes under 30 test rows flagged unstable), confusion matrix,
   calibration (ECE + reliability bins), latency per 1,000 flows.
+- `reference.json`: a compact per-feature histogram (10 bins) of the rows the model was fitted on,
+  the baseline for the drift check (`GET /models/{version}/reference`). Models trained before it
+  existed have none and must be retrained to be drift-checked.
+- Optional novelty detector (`novelty.enabled`): an IsolationForest on the benign training rows,
+  saved as `novelty.joblib`, with a threshold at a quantile (default 0.99) of the benign training
+  scores. `/predict` then returns `novelty: {score, threshold, aboveThreshold}` per flow next to
+  the class verdict. The model card reports the benign false-positive rate on the test split and
+  the share of each attack class above the threshold. It is never mapped to an attack class.
 - Unknown labels are dropped and counted; non-finite values are imputed with the training median.
 - Nothing is activated automatically.
 
@@ -58,6 +72,7 @@ comparisons, time-based holdout for lab data, cross-dataset evaluation.
 | GET | `/models` | registry summary, version warnings, group-aware holdout |
 | GET | `/models/{version}` | plus the model card |
 | POST | `/predict` | `{schema, modelVersion, flows:[{id, features}], explain}`; missing or unknown features → 422; schema mismatch → 409; version mismatch → 409 |
+| GET | `/models/{version}/reference` | training-time histogram for drift checks; 404 for models trained before it existed |
 | POST | `/reload` | rescan artefacts (also happens automatically) |
 
 Explanations (top 5 signed contributions for the predicted class) are computed only for

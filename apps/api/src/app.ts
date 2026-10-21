@@ -16,6 +16,8 @@ import { assetRoutes } from "./modules/assets/asset.routes.js";
 import { refreshAssets } from "./modules/assets/asset.service.js";
 import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
+import { AlertRebuildService } from "./modules/alerts/rebuild.service.js";
+import { rebuildRoutes } from "./modules/alerts/rebuild.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { datasetRoutes } from "./modules/datasets/dataset.routes.js";
@@ -28,6 +30,8 @@ import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
+import { DriftService } from "./modules/monitoring/drift.service.js";
+import { monitoringRoutes } from "./modules/monitoring/monitoring.routes.js";
 import { ruleRoutes } from "./modules/rules/rule.routes.js";
 import { RuleService } from "./modules/rules/rule.service.js";
 import { ScoringService } from "./modules/scoring/scoring.service.js";
@@ -77,6 +81,11 @@ export function createApp(options: AppOptions): SentinelApp {
       await scoring.alertUnalerted(orgId, datasetId);
       await correlation.correlate(orgId);
     });
+  };
+
+  const rebuild = new AlertRebuildService(scoring, rules, correlation, logger);
+  const scheduleRebuild = (orgId: Types.ObjectId, actorId: Types.ObjectId) => {
+    jobs.run(`reapply:${String(orgId)}`, () => rebuild.runAudited(orgId, actorId));
   };
 
   app.disable("x-powered-by");
@@ -159,7 +168,9 @@ export function createApp(options: AppOptions): SentinelApp {
     memberRoutes(config),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring }),
+    monitoringRoutes(config, { drift: new DriftService(ml) }),
     alertRoutes(config),
+    rebuildRoutes(config, { rebuild, scheduleRebuild }),
     ruleRoutes(config, { rules, scheduleDetections }),
     assetRoutes(config, { scheduleAssetRefresh }),
     identityRoutes(config),

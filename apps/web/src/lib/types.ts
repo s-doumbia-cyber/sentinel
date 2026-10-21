@@ -72,6 +72,10 @@ export interface Flow {
     confidence: number;
     severity: Severity;
     needsReview: boolean;
+    /** Present when the model has a novelty detector: distance from benign training traffic, never a class. */
+    novelty?: { score: number; threshold: number; aboveThreshold: boolean } | null;
+    /** Far from benign training traffic and not recognised as a known attack with confidence. */
+    unusualBehaviour?: boolean;
     scoredAt: string;
     probabilities: Record<string, number> | null;
     topFeatures: TopFeature[];
@@ -180,6 +184,29 @@ export interface ModelSummary {
     perClass?: ClassMetric[];
     classesMissingFromTest?: string[];
   };
+  /** Whole capture days (files) or column values kept out of training; the model is tested on them. */
+  heldOut?: {
+    status: "ok" | "not_possible";
+    reason?: string;
+    by?: string;
+    groups?: string[];
+    macroF1?: number | null;
+    testRows?: number;
+    rows?: number;
+    perClass?: ClassMetric[];
+    perGroup?: { group: string; rows: number; classes: Record<string, number>; macroF1: number | null }[];
+    warnings?: string[];
+    classesMissingFromHoldout?: string[];
+    classesUnseenInTraining?: string[];
+  };
+  /** Optional IsolationForest fitted on benign training rows. */
+  novelty?: {
+    quantile: number;
+    threshold: number;
+    trainedOnRows: number;
+    benignFalsePositiveRate: number | null;
+    perClass: { label: string; support: number; flaggedShare: number }[];
+  } | null;
 }
 
 export interface ModelDetail extends ModelSummary {
@@ -511,6 +538,26 @@ export interface ValidationRun {
   notes: string[];
 }
 
+export interface ReapplyPlan {
+  alertsRebuilt: number;
+  alertsKept: number;
+  incidentsRebuilt: number;
+  incidentsKept: number;
+}
+
+export interface ReapplyStatus {
+  running: boolean;
+  /** What a run would rebuild and what it would leave alone, right now. */
+  preview: ReapplyPlan;
+  last: {
+    at: string;
+    status: "done" | "failed";
+    error?: string;
+    plan?: ReapplyPlan;
+    after?: { alerts: number; incidents: number; suppressedVerdicts: { belowMinConfidence: number; allowlisted: number } };
+  } | null;
+}
+
 export interface DetectionSettings {
   /** 0–1; model verdicts below it never become alerts. 0 = off. */
   modelAlertMinConfidence: number;
@@ -518,4 +565,43 @@ export interface DetectionSettings {
   needsReviewThreshold: number;
   allowlist: { cidr: string; note: string; addedBy: string | null; addedAt: string }[];
   suppressedVerdicts: { belowMinConfidence: number; allowlisted: number };
+}
+
+export type DriftLevel = "stable" | "moderate" | "significant";
+
+export interface FeatureDrift {
+  name: string;
+  psi: number;
+  level: DriftLevel;
+  missingCurrent: number;
+  missingReference: number;
+  values: number;
+}
+
+export interface DriftReport {
+  id: string;
+  createdAt: string;
+  windowHours: number;
+  referenceRows: number;
+  sampleSize: number;
+  maxPsi: number;
+  level: DriftLevel;
+  driftedFeatureCount: number;
+  features: FeatureDrift[];
+  predictedClassShare: Record<string, number>;
+  trainingClassShare: Record<string, number>;
+}
+
+export interface DriftOverview {
+  latest: DriftReport | null;
+  history: { id: string; createdAt: string; maxPsi: number; level: DriftLevel; sampleSize: number; windowHours: number }[];
+}
+
+export type DriftRunResult = ({ status: "ok"; id: string; windowHours: number } & Omit<DriftReport, "id" | "createdAt" | "windowHours" | "referenceRows" | "trainingClassShare">) | { status: "insufficient_data"; sampleSize: number; minimum: number; windowHours: number };
+
+export interface ModelFeedback {
+  modelVersion: string;
+  totals: { alerts: number; reviewed: number; truePositive: number; falsePositive: number; benign: number; unreviewed: number; withRuleEvidence: number };
+  confirmedShareOfReviewed: number | null;
+  byType: { type: string; truePositive: number; falsePositive: number; benign: number; unreviewed: number }[];
 }

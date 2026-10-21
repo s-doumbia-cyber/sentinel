@@ -12,6 +12,7 @@ import { api, errorMessage } from "@/lib/api";
 import { formatDateTime, formatExact } from "@/lib/format";
 import { useDetectionSettings, useOrgMutation } from "@/lib/queries";
 import type { DetectionSettings } from "@/lib/types";
+import { ReapplyCard } from "./ReapplyCard";
 
 type Row = { cidr: string; note: string; addedBy?: string | null; addedAt?: string };
 
@@ -96,7 +97,7 @@ function Editor({ settings, editable }: { settings: DetectionSettings; editable:
             </Button>
           )}
           <p className="text-fg-3">
-            Trusting an address hides real attacks that involve it, too. Changes apply to evidence processed after saving; existing alerts are not changed. Every change is recorded in the{" "}
+            Trusting an address hides real attacks that involve it, too. Changes apply to evidence processed after saving; to apply them to existing alerts use the button below. Every change is recorded in the{" "}
             <Link to="/audit" className="text-accent-fg underline underline-offset-2">
               audit log
             </Link>
@@ -114,6 +115,8 @@ function Editor({ settings, editable }: { settings: DetectionSettings; editable:
       ) : (
         <p className="text-small text-fg-3">Only Owners and Admins can change these settings.</p>
       )}
+
+      <ReapplyCard />
     </div>
   );
 }

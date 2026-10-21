@@ -101,10 +101,18 @@ Starter rules: port scan (distinct dst ports), SSH/FTP brute force (many short f
 
 ## 8. Confidence, unknowns and novelty
 
+### Novelty detector (implemented 2026-10-21, roadmap 5.7)
+
+Set `novelty.enabled: true` in a training config to fit an IsolationForest on the benign (Normal) training rows. Its threshold is a quantile (default 0.99) of the benign training scores, saved with the model (`novelty.joblib`); the model card reports the measured benign false-positive rate on the test split and the share of each attack class above the threshold. `/predict` adds `novelty: {score, threshold, aboveThreshold}` next to each verdict.
+
+Sentinel calls a flow **unusual behaviour** only when the novelty score is above the threshold **and** the classifier either said Normal or was below the organisation's review threshold. Every known attack is also unusual compared with benign traffic, so novelty alone would flag all of them. The class label is never changed, the flag is never mapped to an attack class, and it raises **no alert**: an alert needs an alert class with its own severity and MITRE treatment, which has not been decided. The flag is stored on the flow (`scored.unusualBehaviour`), shown as a badge and in the flow drawer, filterable with `?unusual=true` on the Flows page, and described on the Models page. Models trained without it simply have no novelty field. The detector is trained on whatever "Normal" means in the training data: on CICIDS2017 that is a 2017 testbed, so "unusual" there says little about your network.
+
 - Confidence below the org threshold (default 0.6) → alert status `needs_review` (never a hard verdict).
 - Stretch: an IsolationForest trained on benign lab traffic produces a `novelty` score. High novelty with low class confidence → "Unknown behaviour" alert. Report its false-positive rate in the model card.
 
 ## 9. Drift and feedback
+
+*Implemented 2026-10-21 (roadmap 1.9):* training writes `reference.json` (10 bins per feature, from the rows the model was fitted on); the API compares flows a model version scored in a chosen window (up to 20,000, randomly sampled, at least 200 required) with it and stores a drift report (`POST /models/:version/drift`, `GET` for the latest and history). PSI < 0.1 is shown as stable, 0.1 to 0.2 moderate, 0.2 or more significant, always as text with an icon, and always described as a change in the input distribution, not as lost accuracy. Analyst verdicts are aggregated per model version and alert type (`GET /models/:version/feedback`) and labelled reviewed-only. Still to do: the daily schedule, the notification, and "Export labelled data". The text below is the target.
 
 - **Drift:** daily job computes PSI per feature between the training distribution and the last 24 h of live flows; also tracks predicted-class distribution. PSI > 0.2 raises a "model drift" notification.
 - **Feedback loop:** analyst verdicts (true positive / false positive / benign) are stored. "Export labelled data" produces a dataset for retraining. The Models lab shows false-positive rate by class and the number of analyst-labelled examples.

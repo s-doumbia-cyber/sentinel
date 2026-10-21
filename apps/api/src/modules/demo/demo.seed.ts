@@ -25,6 +25,22 @@ export const DEMO_USERS: { role: Role; name: string; email: string }[] = [
 
 export class DemoExistsError extends Error {}
 
+/**
+ * Safety guard for unattended runs (the Compose `demo-seed` service): when a
+ * required host is given, refuse any other MongoDB, so the seed can never be
+ * pointed at a database outside the stack by a stray environment variable.
+ */
+export function assertSeedHost(uri: string, requiredHost: string | undefined): void {
+  if (!requiredHost) return;
+  let host: string;
+  try {
+    host = new URL(uri).hostname;
+  } catch {
+    throw new Error("Refusing to seed: the MongoDB URI cannot be parsed, so its host cannot be checked.");
+  }
+  if (host !== requiredHost) throw new Error(`Refusing to seed: the database host is "${host}" but this run is limited to "${requiredHost}".`);
+}
+
 /** What a run would touch, read without writing anything. */
 export async function inspectDemo(): Promise<{ orgExists: boolean; existingUsers: string[] }> {
   const [org, users] = await Promise.all([

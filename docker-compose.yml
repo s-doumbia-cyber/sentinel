@@ -1,6 +1,9 @@
 # Sentinel stack. Copy .env.example to .env (repository root) and set the secrets first.
 #   docker compose up --build              # mongo, ml, api, web  -> http://localhost:8080
 #   docker compose --profile train run --rm ml-train   # train the sample benchmark model inside the ML image
+#   docker compose --profile demo up --build           # the stack + sample model + synthetic DEMO workspace, seeded once
+#       sign-in details are printed once:  docker compose --profile demo logs demo-seed
+#       reset the demo completely:         docker compose --profile demo down -v   (deletes the stack's own volumes only)
 # MongoDB is not published on the host, so it never collides with a local MongoDB on 27017.
 name: sentinel
 
@@ -31,6 +34,22 @@ services:
     volumes: [ml-artifacts:/app/artifacts]
     command: ["sentinel-train", "--config", "configs/cicids-sample.yaml", "--csv", "/app/samples/cicids2017-friday-ddos-sample.csv", "--output-dir", "/app/artifacts"]
 
+  # Demo profile: trains the sample model once into the shared artefact volume (the ML service rescans
+  # the volume, so it needs no restart). A model is never activated automatically.
+  ml-train-demo:
+    profiles: [demo]
+    build: { context: ., dockerfile: services/ml/Dockerfile }
+    volumes: [ml-artifacts:/app/artifacts]
+    restart: "no"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if ls /app/artifacts/cicids-sample-*/meta.json >/dev/null 2>&1; then
+          echo "Sample model already present; not training again."
+        else
+          sentinel-train --config configs/cicids-sample.yaml --csv /app/samples/cicids2017-friday-ddos-sample.csv --output-dir /app/artifacts
+        fi
+
   api:
     build: { context: ., dockerfile: apps/api/Dockerfile }
     environment:
@@ -51,6 +70,22 @@ services:
     ports: ["${WEB_PORT:-8080}:8080"]
     depends_on:
       api: { condition: service_healthy }
+
+  # Demo profile: creates the synthetic DEMO workspace once, only in this stack's own MongoDB
+  # (--require-host refuses any other host). Passwords are random and printed once to this container's
+  # log; on later runs it reports that the demo exists and prints nothing secret.
+  demo-seed:
+    profiles: [demo]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongo:27017/sentinel
+    command: ["node", "apps/api/dist/scripts/seed-demo.js", "--yes", "--require-host", "mongo"]
+    depends_on:
+      mongo: { condition: service_healthy }
+      api: { condition: service_healthy }
+      ml-train-demo: { condition: service_completed_successfully }
 
 volumes:
   mongo-data:

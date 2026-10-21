@@ -80,6 +80,52 @@ def render_model_card(meta: dict, metrics: dict, cfg: dict) -> str:
             lines.append(f"- Classes absent from the group training side: {', '.join(g['classesMissingFromTrain'])}.")
     else:
         lines.append(f"- Not possible: {g['reason']}.")
+    h = metrics.get("heldOut", {"status": "not_configured"})
+    lines += ["", f"### Held-out {h.get('by', 'groups')} (whole groups kept out of training)"]
+    if h["status"] == "not_configured":
+        lines.append("- Not configured (`split.holdout`): every capture day contributed to training, so no day-wise estimate exists.")
+    elif h["status"] == "ok":
+        lines.append(
+            f"- The shipped model was trained without: {', '.join(h['groups'])}. "
+            f"Macro-F1 **{_fmt(h['macroF1'])}** on {h['testRows']} held-out rows (training rows: {h['trainRows']})."
+        )
+        lines += ["", "| Class | Precision | Recall | F1 | Support | Note |", "|---|---|---|---|---|---|"]
+        for c in h["perClass"]:
+            note = "unstable estimate (< 30 held-out rows)" if c["unstable"] else ""
+            lines.append(f"| {c['label']} | {_fmt(c['precision'])} | {_fmt(c['recall'])} | {_fmt(c['f1'])} | {c['support']} | {note} |")
+        if h.get("perGroup"):
+            lines += ["", "| Group | Rows | Macro-F1 (classes present in that group) |", "|---|---|---|"]
+            for pg in h["perGroup"]:
+                lines.append(f"| {pg['group']} | {pg['rows']} | {_fmt(pg['macroF1'])} |")
+    else:
+        lines.append(f"- Not possible: {h.get('reason')}.")
+    for w in h.get("warnings", []):
+        lines.append(f"- **Warning:** {w}")
+    nv = metrics.get("novelty", {"status": "not_configured"})
+    lines += ["", "### Novelty detector (unusual behaviour)"]
+    if nv["status"] == "ok":
+        lines += [
+            f"- IsolationForest fitted on {nv['trainedOnRows']} benign training rows; a flow scoring at or above {_fmt(nv['threshold'])}"
+            f" (the {nv['quantile']:.0%} quantile of benign training scores) is statistically unusual compared with that traffic.",
+            f"- Measured on the held-out test split: {_fmt(nv['benignFalsePositiveRate'])} of {nv['benignRows']} benign rows were above the threshold.",
+            "- It is not a diagnosis and is never mapped to an attack class. Known attacks are also unusual compared with benign traffic,"
+            " so Sentinel reports \"unusual behaviour\" only when a flow is above the threshold and the classifier did not recognise it with confidence.",
+        ]
+        if nv["perClass"]:
+            lines += ["", "| Class | Test rows | Share above the novelty threshold |", "|---|---|---|"]
+            lines += [f"| {c['label']} | {c['support']} | {_fmt(c['flaggedShare'])} |" for c in nv["perClass"]]
+    elif nv["status"] == "not_possible":
+        lines.append(f"- Not trained: {nv.get('reason')}.")
+    else:
+        lines.append("- Not configured (`novelty.enabled` in the training config).")
+    ref = meta.get("reference")
+    if ref:
+        lines += [
+            "",
+            "### Drift reference",
+            f"- `reference.json` stores a {ref['bins']}-bin histogram per feature from the {ref['rows']} rows the model was fitted on."
+            " The Models page compares recent scored flows with it (population stability index); it measures change, not accuracy.",
+        ]
     lines += [
         "",
         "## 5. Cross-dataset results",

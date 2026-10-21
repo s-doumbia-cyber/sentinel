@@ -11,7 +11,7 @@ import { loadConfig } from "../src/config/index.js";
 import { signAccessToken } from "../src/lib/crypto.js";
 import { createLogger } from "../src/lib/logger.js";
 import { AuthSession, Membership, User } from "../src/models/identity.js";
-import type { MlClient, ModelDetail, PredictResponse } from "../src/modules/models/ml.client.js";
+import type { MlClient, ModelDetail, PredictResponse, ReferenceHistogram } from "../src/modules/models/ml.client.js";
 
 export const TEST_SECRET = "test-access-secret-0123456789abcdef";
 export const API = "/api/v1";
@@ -131,6 +131,8 @@ export function writeCsv(rows: CsvRow[], header: string[] = CICIDS_HEADER): stri
  */
 export class FakeMl implements MlClient {
   calls: { modelVersion: string; count: number }[] = [];
+  /** When true, every result carries a novelty score: above the threshold for DDoS-like flows and Flow Duration 7 / 21 / 22. */
+  novelty = false;
   fail: "none" | "unavailable" | "contract" = "none";
   readonly models: ModelDetail[] = ["bench-a", "bench-b"].map((version) => ({
     version,
@@ -151,6 +153,11 @@ export class FakeMl implements MlClient {
   }
   async getModel(version: string) {
     return this.models.find((m) => m.version === version) ?? null;
+  }
+  /** Training-time histogram served for drift checks; tests set it, null means "trained before references existed". */
+  reference: ReferenceHistogram | null = null;
+  async getReference(version: string) {
+    return this.models.some((m) => m.version === version) ? this.reference : null;
   }
   async predict(req: Parameters<MlClient["predict"]>[0]): Promise<PredictResponse> {
     if (this.fail === "unavailable") {
@@ -175,6 +182,12 @@ export class FakeMl implements MlClient {
           label: label as string,
           confidence: confidence as number,
           probabilities: { [label as string]: confidence as number },
+          ...(this.novelty
+            ? (() => {
+                const above = pps > 1000 || dur === 7 || dur === 21 || dur === 22;
+                return { novelty: { score: above ? 0.7 : 0.4, threshold: 0.55, aboveThreshold: above } };
+              })()
+            : {}),
           topFeatures: label === "Normal" ? [] : [{ name: "Flow Packets/s", contribution: 0.3, value: pps }],
         };
       }),

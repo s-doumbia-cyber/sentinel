@@ -27,6 +27,10 @@ const scoredSchema = new Schema(
     severity: { type: String, enum: SEVERITIES, required: true },
     needsReview: { type: Boolean, required: true },
     topFeatures: [{ _id: false, name: String, contribution: Number, value: Number }],
+    /** Distance from benign training traffic (IsolationForest), when the model has a novelty detector. Never a class. */
+    novelty: { type: new Schema({ score: Number, threshold: Number, aboveThreshold: Boolean }, { _id: false }), default: undefined },
+    /** Above the novelty threshold AND not recognised as a known attack with confidence: "unusual behaviour". */
+    unusualBehaviour: { type: Boolean, default: false },
     scoredAt: { type: Date, required: true },
   },
   { _id: false },
@@ -76,6 +80,8 @@ flowSchema.index({ orgId: 1, destinationIp: 1, timestamp: -1 });
 flowSchema.index({ orgId: 1, "scored.label": 1, timestamp: -1 });
 flowSchema.index({ orgId: 1, scoreStatus: 1, featureSchema: 1, _id: 1 });
 flowSchema.index({ orgId: 1, datasetId: 1 });
+// Drift checks sample the flows one model version scored recently.
+flowSchema.index({ orgId: 1, "scored.modelVersion": 1, "scored.scoredAt": -1 }, { partialFilterExpression: { scoreStatus: "scored" } });
 tenantGuard(flowSchema, "Flow");
 
 export type FlowDoc = InferSchemaType<typeof flowSchema> & { _id: Types.ObjectId };
@@ -298,5 +304,34 @@ for (const op of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"] a
 export type IncidentEventDoc = InferSchemaType<typeof incidentEventSchema> & { _id: Types.ObjectId };
 export const IncidentEvent = mongoose.model("IncidentEvent", incidentEventSchema, "incident_events");
 
+// ---- Drift reports (PSI against a model's training reference) ----------------------------
+
+const driftReportSchema = new Schema(
+  {
+    orgId: orgRef,
+    modelVersion: { type: String, required: true },
+    schema: { type: String, enum: FEATURE_SCHEMA_IDS, required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    windowHours: { type: Number, required: true },
+    referenceRows: { type: Number, required: true },
+    sampleSize: { type: Number, required: true },
+    maxPsi: { type: Number, required: true },
+    level: { type: String, enum: ["stable", "moderate", "significant"], required: true },
+    driftedFeatureCount: { type: Number, required: true },
+    features: [{ _id: false, name: String, psi: Number, level: String, missingCurrent: Number, missingReference: Number, values: Number }],
+    predictedClassShare: { type: Map, of: Number, default: () => new Map() },
+    trainingClassShare: { type: Map, of: Number, default: () => new Map() },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
+driftReportSchema.index({ orgId: 1, modelVersion: 1, createdAt: -1 });
+tenantGuard(driftReportSchema, "DriftReport");
+for (const op of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"] as const) {
+  driftReportSchema.pre(op, () => {
+    throw new Error("drift_reports is append-only");
+  });
+}
+export const DriftReport = mongoose.model("DriftReport", driftReportSchema, "drift_reports");
+
 /** Collections holding tenant data, used when an org is deleted. */
-export const TENANT_MODELS = [Flow, Dataset, Incident, AuditLog, Rule, Alert, IncidentEvent] as const;
+export const TENANT_MODELS = [Flow, Dataset, Incident, AuditLog, Rule, Alert, IncidentEvent, DriftReport] as const;

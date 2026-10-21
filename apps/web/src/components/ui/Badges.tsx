@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, Clock, Info, ShieldAlert, type LucideIcon } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, Clock, Info, ShieldAlert, Sparkles, type LucideIcon } from "lucide-react";
 import { MITRE_BY_CLASS, type AttackClass, type Severity, type SourceKind } from "@sentinel/shared";
 import { cn } from "@/lib/format";
 import type { Flow } from "@/lib/types";
@@ -60,11 +60,23 @@ export function VerdictBadge({ flow }: { flow: Pick<Flow, "scoreStatus" | "score
     );
   }
   const malicious = flow.scored.label !== "Normal";
-  return (
+  const badge = (
     <span className={cn(base, malicious ? "bg-accent-soft text-accent-fg" : "bg-sev-ok/15 text-sevfg-ok")}>
       {malicious ? <ShieldAlert aria-hidden className="h-3.5 w-3.5" /> : <CheckCircle2 aria-hidden className="h-3.5 w-3.5" />}
       {flow.scored.label}
       {flow.scored.needsReview && <span className="font-normal opacity-80">· review</span>}
+    </span>
+  );
+  if (!flow.scored.unusualBehaviour) return badge;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {badge}
+      <span
+        className={cn(base, "border border-dashed border-kind-demo/70 text-sevfg-medium")}
+        title="Far from the benign traffic the model was trained on, and not recognised as a known attack with confidence. Not an attack verdict."
+      >
+        <Sparkles aria-hidden className="h-3.5 w-3.5" /> Unusual behaviour
+      </span>
     </span>
   );
 }

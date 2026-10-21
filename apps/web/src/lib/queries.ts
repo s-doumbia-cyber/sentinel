@@ -7,6 +7,9 @@ import type {
   AssetDetail,
   AssetEvent,
   DetectionSettings,
+  DriftOverview,
+  ModelFeedback,
+  ReapplyStatus,
   IdentityLookup,
   IdentityRecord,
   IdentityImport,
@@ -44,6 +47,7 @@ export type FlowFilters = {
   severity?: string;
   port?: string;
   needsReview?: string;
+  unusual?: string;
 };
 
 /** Query keys include the org so cached data is never shown under another org. */
@@ -277,6 +281,16 @@ export function useDetectionSettings() {
   return useQuery({ queryKey: [org, "detectionSettings"], queryFn: () => api<DetectionSettings>("/detection/settings") });
 }
 
+/** Polls every 1.5 s while a rebuild is running so the card shows when it finishes. */
+export function useReapplyStatus() {
+  const org = useOrgKey();
+  return useQuery({
+    queryKey: [org, "reapplyStatus"],
+    queryFn: () => api<ReapplyStatus>("/detection/reapply"),
+    refetchInterval: (query) => (query.state.data?.running ? 1500 : false),
+  });
+}
+
 export function useIdentityImports(enabled = true) {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "identityImports"], queryFn: () => api<{ items: IdentityImport[] }>("/identity/imports"), enabled });
@@ -290,4 +304,14 @@ export function useValidationRuns() {
 export function useValidationRun(id: string | null) {
   const org = useOrgKey();
   return useQuery({ queryKey: [org, "validationRun", id], queryFn: () => api<ValidationRun>(`/validation/runs/${id}`), enabled: Boolean(id) });
+}
+
+export function useDrift(version: string) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "drift", version], queryFn: () => api<DriftOverview>(`/models/${encodeURIComponent(version)}/drift`) });
+}
+
+export function useModelFeedback(version: string) {
+  const org = useOrgKey();
+  return useQuery({ queryKey: [org, "modelFeedback", version], queryFn: () => api<ModelFeedback>(`/models/${encodeURIComponent(version)}/feedback`) });
 }

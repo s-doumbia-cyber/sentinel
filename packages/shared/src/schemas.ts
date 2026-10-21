@@ -87,6 +87,8 @@ export const flowQuerySchema = z.object({
   verdict: z.union([attackClassSchema, z.enum(["unscored", "malicious", "error"])]).optional(),
   severity: severitySchema.optional(),
   needsReview: z.enum(["true"]).optional(),
+  /** Flows flagged "unusual behaviour" by the novelty detector (far from benign training traffic, not recognised as a known attack). */
+  unusual: z.enum(["true"]).optional(),
 });
 export type FlowQuery = z.infer<typeof flowQuerySchema>;
 

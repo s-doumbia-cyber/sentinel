@@ -193,7 +193,7 @@ attacker traffic, which the model had scored with low confidence: a threshold tr
 quiet, so check **Validation** before raising it. Kept-out verdicts stay on their flows and are
 counted on the Detection tab. Do not allowlist what you have not checked: in this dataset the
 largest source of false positives, `205.174.x.x`, is also the attackers' public address, so trusting
-it would hide the attacks. Changes apply to evidence processed after saving; existing alerts stay.
+it would hide the attacks. Saved changes apply to evidence processed afterwards; to apply them to alerts that already exist, use **Rebuild alerts with the saved settings** at the bottom of the same tab (Owner / Admin). It deletes and rebuilds only alerts and incidents nobody has worked on, from the verdicts and rule hits already stored; triaged alerts, assigned or commented incidents and every flow verdict stay as they are. It runs in the background and is recorded in the audit log (`detection.reapply`, `detection.reapply_done`). Do not import data while it runs.
 
 The starter rule `R-SLOWHTTP-01` was also tightened after replaying all eight days through the rule
 engine: 161 hits before, 15 after, with the 8 hits on real slow-HTTP attack flows kept. Workspaces
@@ -207,6 +207,17 @@ Copy-Item .env.example .env      # set JWT_ACCESS_SECRET and ML_SERVICE_TOKEN
 docker compose --profile train run --rm ml-train
 docker compose up --build        # http://localhost:8080
 ```
+
+**One command, with the demo workspace:** `docker compose --profile demo up --build`, then
+`docker compose --profile demo logs demo-seed` shows the Owner / Analyst / Viewer sign-in details,
+printed once on the first run (copy them; a later run only reports that the demo exists). Open
+http://localhost:8080. The profile trains the sample model into the stack's own volume and seeds the
+DEMO data into the stack's own MongoDB (`demo-seed` is started with `--require-host mongo` and refuses
+any other database); it never reads or writes the MongoDB on your machine. The model is trained but
+not activated: activate it on the Models page. To start over: `docker compose --profile demo down -v`.
+The compose file was validated with `docker compose config` and the seed ran from the compiled image
+layout against a throwaway database (twice: created, then "already exists"); `docker compose up`
+itself was not run because Docker Desktop was not running on 2026-10-21.
 
 This path was verified earlier on 2026-10-20 (`npm run smoke` passed against it). It could not be
 re-run when this guide was last checked because Docker Desktop was not running on the machine.

@@ -2,6 +2,70 @@
 
 All notable changes. Dates are UTC.
 
+## 2026-10-21
+
+### Day-wise validation in the training CLI
+- `split.holdout` (`by: file` or a CSV column, explicit names / globs or a seeded fraction) keeps whole
+  capture days out of training; the shipped model is tested on them. `metrics.json` (`heldOut`), the
+  model card and the registry summary carry per-class precision / recall / F1 / support, per-group
+  macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
+  only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
+
+### One-command demo (roadmap 6.1)
+- `docker compose --profile demo up --build` adds `ml-train-demo` (trains the sample model into the stack's
+  volume unless one exists) and `demo-seed` (runs the compiled `seed-demo` once against the stack's own
+  MongoDB; random credentials printed once to its log; a second run reports "already exists"). The seed gets
+  `--require-host <name>` and refuses any other database host. The API image now carries `data/demo`.
+- Not verified end to end: Docker Desktop was not running, so `docker compose up` was not run; the compose file
+  was validated with `docker compose config` and the compiled seed script was run twice on a throwaway MongoDB.
+
+### Novelty detection: "unusual behaviour" (roadmap 5.7)
+- Flows get `scored.novelty` (score, threshold, above-threshold) when the active model has a novelty detector,
+  and `scored.unusualBehaviour` when the score is above the threshold and the classifier said Normal or was
+  below the review threshold. The class verdict is never changed and no alert is raised. Shown as a badge in
+  the Flows list, a section in the flow drawer, `?unusual=true` on `GET /flows` and the Flows page, and on the
+  Models page next to the held-out results. Tests: flagging rule, class unchanged, no alert, models without a
+  detector, badge.
+
+### Model drift and analyst feedback (roadmap 1.9)
+- Drift job: `POST /models/:version/drift` (Analyst and above; window 1 h to 30 days, default 24 h) samples
+  flows that model version scored recently (`$sample`, at most 20,000, at least 200 required, otherwise no
+  report), bins them with the model's training-time reference histogram and stores the PSI per feature in
+  an append-only `drift_reports` collection; audited as `model.drift_check`. `GET /models/:version/drift`
+  returns the latest report and history. Old models without a reference answer 409 "retrain".
+- `GET /models/:version/feedback`: analyst verdicts (true positive / false positive / benign / not reviewed)
+  per model version and alert type, labelled as reviewed-only, not precision.
+- Models page: Monitoring panel (level shown as text and icon, top features with glossary labels, class mix,
+  empty and error states). PSI unit-tested on a synthetic shift; API tests with an in-memory MongoDB.
+- Shared-file notes: new index on flows (`scored.modelVersion`, `scored.scoredAt`), new `DriftReport` model.
+
+### Re-apply alert noise settings to existing alerts
+- `POST /detection/reapply` (Owner / Admin, background job, 202) rebuilds an organisation's alerts and
+  incidents from the stored verdicts and rule hits under the current minimum confidence, allowlist, review
+  threshold and rules; `GET /detection/reapply` returns whether it runs, what a run would rebuild and keep,
+  and the last outcome. Flows and verdicts are untouched. Alerts an analyst triaged (verdict or analyst
+  status), incidents a person created or worked on (status, assignee, notes, actions, report) and every alert
+  inside such an incident are kept as they are and their evidence is not counted twice; everything else is
+  rebuilt. Idempotent; refused while scoring or another rebuild runs. Audited (`detection.reapply`,
+  `detection.reapply_done` / `_failed`). Settings → Detection gets a confirm dialog that states the counts.
+  Tests on an in-memory MongoDB (rebuild, idempotence, analyst work kept, roles, org isolation, locking) and a
+  component test.
+
+### Feature glossary (roadmap 1.6)
+- `packages/shared/src/featureGlossary.json`: a plain-language label, unit and one-sentence meaning for
+  each of the 44 `cicids2017-v1` features. The "why" bars in the alert and flow drawers now read
+  "Packets per second · value 812 packets/s" with the model feature name still shown and an unknown
+  name falling back to itself. Tests: every schema feature has an entry, units match the schema JSON,
+  labels are distinct, values format with units.
+
+### Drift reference and novelty detector (ML service)
+- Every trained model now stores `reference.json`, a compact 10-bin histogram per feature of the rows
+  it was fitted on (`GET /models/{version}/reference`); the drift check compares recent flows to it.
+- Optional IsolationForest on benign training rows (`novelty.enabled`), threshold at a benign-score
+  quantile, saved as `novelty.joblib`. `/predict` adds `novelty` next to the verdict; the model card
+  reports the benign false-positive rate and the share of each attack class above the threshold.
+  It is never mapped to an attack class. pytest coverage.
+
 ## 2026-10-20
 
 ### Foundation (Phase 0)
