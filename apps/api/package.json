@@ -15,7 +15,8 @@
     "migrate:legacy": "tsx --conditions=development src/scripts/migrate-legacy.ts",
     "seed:demo": "tsx --conditions=development src/scripts/seed-demo.ts",
     "dev:worker": "tsx watch --conditions=development src/worker.ts",
-    "start:worker": "node dist/worker.js"
+    "start:worker": "node dist/worker.js",
+    "bench": "tsx --conditions=development src/scripts/bench.ts"
   },
   "dependencies": {
     "@sentinel/shared": "*",

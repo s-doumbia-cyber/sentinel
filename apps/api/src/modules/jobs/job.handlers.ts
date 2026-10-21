@@ -10,6 +10,7 @@ import { refreshAssets } from "../assets/asset.service.js";
 import { SCHEMA_FOR_SOURCE_TYPE, checkCsvHeader, runCsvImport, type ImportInput } from "../datasets/csv.importer.js";
 import type { CorrelationService } from "../incidents/correlation.service.js";
 import { runRetention } from "../retention/retention.service.js";
+import { rebuildRollups } from "../stats/rollup.service.js";
 import type { RuleService } from "../rules/rule.service.js";
 import type { ScoringService } from "../scoring/scoring.service.js";
 
@@ -36,9 +37,11 @@ export interface Scheduler {
   score(orgId: Types.ObjectId): Promise<void>;
   detect(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<void>;
   assets(orgId: Types.ObjectId): Promise<void>;
+  /** Rebuilds the stats rollups; skipped when one is already queued or running for the org. */
+  rollup(orgId: Types.ObjectId): Promise<void>;
   /** `jobId` deduplicates sweeps (Redis keeps one job per id). */
   retention(orgId: Types.ObjectId, actorId: Types.ObjectId | null, jobId?: string): Promise<string>;
-  busy(kind: "import" | "score" | "detect" | "retention", orgId: Types.ObjectId): Promise<boolean>;
+  busy(kind: "import" | "score" | "detect" | "retention" | "rollup", orgId: Types.ObjectId): Promise<boolean>;
 }
 
 export interface JobHandlerDeps {
@@ -112,6 +115,7 @@ async function importJob(p: JobPayload, ctx: JobContext, deps: JobHandlerDeps, s
   await schedule.score(orgId);
   await schedule.detect(orgId, datasetId);
   await schedule.assets(orgId);
+  await schedule.rollup(orgId);
 }
 
 /**
@@ -134,6 +138,9 @@ export function registerJobHandlers(deps: JobHandlerDeps): Scheduler {
     async assets(orgId) {
       await queue.enqueue("assets", { orgId: String(orgId) });
     },
+    async rollup(orgId) {
+      if (!(await queue.busy("rollup", String(orgId)))) await queue.enqueue("rollup", { orgId: String(orgId) });
+    },
     retention: (orgId, actorId, jobId) =>
       queue.enqueue("retention", { orgId: String(orgId), actorId: actorId ? String(actorId) : null }, jobId ? { jobId } : undefined),
     busy: (kind, orgId) => queue.busy(kind, String(orgId)),
@@ -145,6 +152,7 @@ export function registerJobHandlers(deps: JobHandlerDeps): Scheduler {
     const orgId = oid(p.orgId);
     await deps.scoring.scorePending(orgId, ctx.jobId, resumeOf(p));
     await deps.correlation.correlate(orgId);
+    await schedule.rollup(orgId);
   });
 
   // Rules do not need the ML service; the backfill folds earlier malicious verdicts into alerts.
@@ -164,7 +172,14 @@ export function registerJobHandlers(deps: JobHandlerDeps): Scheduler {
     const orgId = oid(p.orgId);
     const result = await runRetention(orgId, { actorId: p.actorId ? oid(p.actorId) : null, logger: deps.logger });
     // The inventory is rebuilt from flows: purged addresses become inactive.
-    if (result.flowsDeleted) await schedule.assets(orgId);
+    if (result.flowsDeleted) {
+      await schedule.assets(orgId);
+      await schedule.rollup(orgId);
+    }
+  });
+
+  queue.register("rollup", async (p) => {
+    await rebuildRollups(oid(p.orgId));
   });
 
   return schedule;

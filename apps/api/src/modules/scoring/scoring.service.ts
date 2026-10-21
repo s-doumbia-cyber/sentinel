@@ -3,6 +3,7 @@ import { DEFAULT_SEVERITY_BY_CLASS, FEATURE_SCHEMA_IDS, type AttackClass, type F
 import { AppError } from "../../lib/errors.js";
 import type { Logger } from "../../lib/logger.js";
 import { Org } from "../../models/identity.js";
+import { markFlowsChanged } from "../../models/rollups.js";
 import { Flow, type FlowDoc } from "../../models/tenant.js";
 import type { AlertService } from "../alerts/alert.service.js";
 import { loadAlertPolicy, policyFromSettings, type AlertPolicy } from "../alerts/policy.js";
@@ -153,6 +154,8 @@ export class ScoringService {
         };
       });
       const write = await Flow.bulkWrite(ops, { ordered: false });
+      // bulkWrite has no hook that sees its operations (models/rollups.ts): mark the rollups stale here.
+      await markFlowsChanged(orgId);
       // Malicious verdicts become (or join) alerts right away.
       await this.alerts.settleClaim(orgId, claim, threshold);
       const errored = ops.filter((o) => "updateOne" in o && (o.updateOne.update as { $set: { scoreStatus: string } }).$set.scoreStatus === "error").length;

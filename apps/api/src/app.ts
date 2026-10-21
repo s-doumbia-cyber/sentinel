@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { type Express } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { tmpdir } from "node:os";
 import mongoose from "mongoose";
 import { pinoHttp } from "pino-http";
@@ -10,6 +11,8 @@ import type { AppConfig } from "./config/index.js";
 import { ah, requestId } from "./lib/http.js";
 import { createJobQueue, type JobQueue } from "./lib/jobs.js";
 import type { Logger } from "./lib/logger.js";
+import { Metrics } from "./lib/metrics.js";
+import { buildOpenApi, renderDocsPage } from "./lib/openapi.js";
 import { PolicyRouter, type RouteInfo } from "./lib/routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { alertRoutes } from "./modules/alerts/alert.routes.js";
@@ -42,6 +45,7 @@ import { statsRoutes } from "./modules/stats/stats.routes.js";
 import { validationRoutes } from "./modules/validation/validation.routes.js";
 
 export const API_PREFIX = "/api/v1";
+const API_VERSION = "0.1.0";
 
 export interface AppOptions {
   config: AppConfig;
@@ -83,6 +87,8 @@ export function createApp(options: AppOptions): SentinelApp {
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
   app.use(requestId());
+  const metrics = config.metrics.enabled ? new Metrics() : null;
+  if (metrics) app.use(metrics.middleware());
   app.use(
     pinoHttp({
       logger,
@@ -155,7 +161,7 @@ export function createApp(options: AppOptions): SentinelApp {
       rateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 },
     }),
     flowRoutes(config),
-    statsRoutes(config),
+    statsRoutes(config, { requestRollup: schedule.rollup }),
     datasetRoutes(config, { schedule, uploadDir: config.uploadDir ?? tmpdir() }),
     incidentRoutes(config),
     incidentWorkflowRoutes(config),
@@ -174,9 +180,39 @@ export function createApp(options: AppOptions): SentinelApp {
     retentionRoutes(config, { schedule }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
+  const routes = routers.flatMap((r) => r.routes.map((x) => ({ ...x, path: `${API_PREFIX}${x.path}` })));
+
+  // API reference generated from the same route policies and zod schemas the API enforces.
+  const openapi = buildOpenApi(routes, { version: API_VERSION });
+  app.get("/api/docs/openapi.json", (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
+    res.json(openapi);
+  });
+  app.get("/api/docs", (_req, res) => {
+    const nonce = randomBytes(16).toString("base64");
+    res.setHeader("Content-Security-Policy", `default-src 'none'; style-src 'nonce-${nonce}'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
+    res.type("html").send(renderDocsPage(openapi, nonce));
+  });
+
+  if (metrics) {
+    const expected = config.metrics.token ? Buffer.from(`Bearer ${config.metrics.token}`) : null;
+    app.get("/metrics", (req, res, next) => {
+      if (expected) {
+        const given = Buffer.from(req.header("authorization") ?? "");
+        if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+          res.status(401).type("text/plain").send("unauthorized");
+          return;
+        }
+      }
+      metrics
+        .render({ queue: jobs, mongoUp: mongoose.connection.readyState === 1 })
+        .then((text) => res.type("text/plain; version=0.0.4").send(text))
+        .catch(next);
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler(logger));
 
-  return { app, jobs, schedule, scoring, routes: routers.flatMap((r) => r.routes.map((x) => ({ ...x, path: `${API_PREFIX}${x.path}` }))) };
+  return { app, jobs, schedule, scoring, routes };
 }

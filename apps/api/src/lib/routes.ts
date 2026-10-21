@@ -1,7 +1,9 @@
 import { Router, type RequestHandler } from "express";
 import type { Action } from "@sentinel/shared";
+import type { ZodType, ZodTypeDef } from "zod";
 import type { AppConfig } from "../config/index.js";
 import { authorize, requireAuth } from "../middleware/auth.js";
+import { validatorSchemas, type Part } from "./http.js";
 
 /**
  * `public`: no authentication (login, register, health).
@@ -17,6 +19,8 @@ export interface RouteInfo {
   path: string;
   policy: Policy;
   mutating: boolean;
+  /** zod schemas the route validates (from `validate()`), for the OpenAPI document. */
+  schemas: Partial<Record<Part, ZodType<unknown, ZodTypeDef, unknown>>>;
 }
 
 /**
@@ -37,7 +41,12 @@ export class PolicyRouter {
     if (policy !== "public") guards.push(requireAuth(this.config, { allowNoOrg: policy === "account" }));
     if (policy !== "public" && policy !== "self" && policy !== "account") guards.push(authorize(policy));
     this.router[method](path, ...guards, ...handlers);
-    this.routes.push({ method, path: `${this.prefix}${path}`, policy, mutating: method !== "get" });
+    const schemas: RouteInfo["schemas"] = {};
+    for (const h of handlers) {
+      const v = validatorSchemas.get(h);
+      if (v) schemas[v.part] = v.schema;
+    }
+    this.routes.push({ method, path: `${this.prefix}${path}`, policy, mutating: method !== "get", schemas });
     return this;
   }
 }

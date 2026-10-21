@@ -106,10 +106,18 @@ export function modelRoutes(config: AppConfig, deps: ModelRouteDeps): PolicyRout
     "stats:read",
     ah(async (req, res) => {
       const { orgId } = authOf(req);
-      const rows = await Flow.aggregate<{ _id: { schema: string; status: string }; n: number }>([
-        { $match: { orgId } },
-        { $group: { _id: { schema: "$featureSchema", status: "$scoreStatus" }, n: { $sum: 1 } } },
-      ]);
+      // One count per (schema, status), each answered from the {orgId, scoreStatus, featureSchema} index
+      // instead of grouping every flow of the org (seconds at millions of flows).
+      const rows = (
+        await Promise.all(
+          FEATURE_SCHEMA_IDS.flatMap((schema) =>
+            (["pending", "scored", "error"] as const).map(async (status) => ({
+              _id: { schema, status },
+              n: await Flow.countDocuments({ orgId, scoreStatus: status, featureSchema: schema }),
+            })),
+          ),
+        )
+      ).filter((x) => x.n > 0);
       const active = await activeFor(orgId);
       res.json({
         running: deps.scoring.isRunning(orgId) || (await deps.scoringBusy(orgId)),

@@ -9,6 +9,7 @@ import {
   SEVERITIES,
   SOURCE_KINDS,
 } from "@sentinel/shared";
+import { trackRollupChanges } from "./rollups.js";
 import { tenantGuard } from "./tenantGuard.js";
 
 const orgRef = { type: Schema.Types.ObjectId, ref: "Org", required: true } as const;
@@ -83,6 +84,7 @@ flowSchema.index({ orgId: 1, alertClaimedAt: 1 }, { partialFilterExpression: { a
 // Retention purges by storage time, not event time (imported datasets can be years old).
 flowSchema.index({ orgId: 1, createdAt: 1 });
 tenantGuard(flowSchema, "Flow");
+trackRollupChanges(flowSchema);
 
 export type FlowDoc = InferSchemaType<typeof flowSchema> & { _id: Types.ObjectId };
 // The legacy collection name is kept so existing imports can be migrated in place.

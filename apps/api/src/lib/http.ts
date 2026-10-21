@@ -56,11 +56,14 @@ export function ah(fn: (req: Request, res: Response, next: NextFunction) => Prom
   };
 }
 
-type Part = "body" | "query" | "params";
+export type Part = "body" | "query" | "params";
+
+/** Remembers which schema a `validate()` handler applies, so the OpenAPI document is generated from the same zod schemas. */
+export const validatorSchemas = new WeakMap<RequestHandler, { part: Part; schema: ZodType<unknown, ZodTypeDef, unknown> }>();
 
 /** Parses `req[part]` with zod; the parsed value replaces the raw one. */
 export function validate<T>(part: Part, schema: ZodType<T, ZodTypeDef, unknown>): RequestHandler {
-  return (req, _res, next) => {
+  const handler: RequestHandler = (req, _res, next) => {
     const result = schema.safeParse(req[part]);
     if (!result.success) {
       return next(
@@ -74,6 +77,8 @@ export function validate<T>(part: Part, schema: ZodType<T, ZodTypeDef, unknown>)
     (req as unknown as Record<Part, unknown>)[part] = result.data;
     next();
   };
+  validatorSchemas.set(handler, { part, schema });
+  return handler;
 }
 
 /** Typed accessor for data validated by `validate(part, schema)`. */
