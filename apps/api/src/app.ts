@@ -3,17 +3,17 @@ import cors from "cors";
 import express, { type Express } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import mongoose, { type Types } from "mongoose";
+import { tmpdir } from "node:os";
+import mongoose from "mongoose";
 import { pinoHttp } from "pino-http";
 import type { AppConfig } from "./config/index.js";
 import { ah, requestId } from "./lib/http.js";
-import { BackgroundJobs } from "./lib/jobs.js";
+import { createJobQueue, type JobQueue } from "./lib/jobs.js";
 import type { Logger } from "./lib/logger.js";
 import { PolicyRouter, type RouteInfo } from "./lib/routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { alertRoutes } from "./modules/alerts/alert.routes.js";
 import { assetRoutes } from "./modules/assets/asset.routes.js";
-import { refreshAssets } from "./modules/assets/asset.service.js";
 import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
@@ -25,6 +25,8 @@ import { incidentRoutes } from "./modules/incidents/incident.routes.js";
 import { incidentTraceRoutes } from "./modules/incidents/trace.routes.js";
 import { detectionSettingsRoutes } from "./modules/rules/detection-settings.routes.js";
 import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
+import { recordDeadLetter, registerJobHandlers, type Scheduler } from "./modules/jobs/job.handlers.js";
+import { jobRoutes } from "./modules/jobs/job.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
@@ -41,11 +43,15 @@ export interface AppOptions {
   logger: Logger;
   ml?: MlClient;
   authRateLimit?: { windowMs: number; max: number };
+  /** Overrides the queue chosen from REDIS_URL (tests of the BullMQ path). */
+  queue?: JobQueue;
 }
 
 export interface SentinelApp {
   app: Express;
-  jobs: BackgroundJobs;
+  /** Background jobs; `jobs.idle()` waits for every queued job, `jobs.start()` starts BullMQ workers. */
+  jobs: JobQueue;
+  schedule: Scheduler;
   scoring: ScoringService;
   routes: RouteInfo[];
 }
@@ -54,30 +60,20 @@ export interface SentinelApp {
 export function createApp(options: AppOptions): SentinelApp {
   const { config, logger } = options;
   const app = express();
-  const jobs = new BackgroundJobs(logger);
   const ml = options.ml ?? createMlClient(config);
   const alerts = new AlertService();
   const scoring = new ScoringService(ml, logger, alerts);
   const rules = new RuleService(alerts, logger);
   const correlation = new CorrelationService(logger);
-  const scheduleScoring = (orgId: Types.ObjectId) => {
-    if (!config.ml.url && !options.ml) return;
-    jobs.run(`score:${String(orgId)}`, async () => {
-      await scoring.scorePending(orgId);
-      await correlation.correlate(orgId);
-    });
-  };
-  const scheduleAssetRefresh = (orgId: Types.ObjectId) => {
-    jobs.run(`assets:${String(orgId)}`, () => refreshAssets(orgId, logger));
-  };
-  // Rules do not need the ML service; the backfill folds earlier malicious verdicts into alerts.
-  const scheduleDetections = (orgId: Types.ObjectId, datasetId?: Types.ObjectId) => {
-    jobs.run(`detect:${String(orgId)}`, async () => {
-      await rules.run(orgId, { datasetId });
-      await scoring.alertUnalerted(orgId, datasetId);
-      await correlation.correlate(orgId);
-    });
-  };
+  const queueMode = options.queue?.mode ?? (config.jobs.redisUrl ? "redis" : "in-process");
+  const jobs =
+    options.queue ??
+    createJobQueue(
+      { redisUrl: config.jobs.redisUrl, prefix: config.jobs.prefix, policy: { attempts: config.jobs.attempts, backoffMs: config.jobs.backoffMs } },
+      logger,
+      (entry) => recordDeadLetter(entry, queueMode),
+    );
+  const schedule = registerJobHandlers({ queue: jobs, logger, scoring, rules, correlation, canScore: Boolean(config.ml.url || options.ml) });
 
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
@@ -128,13 +124,16 @@ export function createApp(options: AppOptions): SentinelApp {
     "public",
     ah(async (_req, res) => {
       const mongo = mongoose.connection.readyState === 1;
+      const redis = await jobs.health();
       let mlStatus: "ok" | "unreachable" | "not_configured" = "not_configured";
       if (config.ml.url) {
         mlStatus = await fetch(`${config.ml.url.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(2000) })
           .then((r) => (r.ok ? "ok" : "unreachable"))
           .catch(() => "unreachable");
       }
-      res.status(mongo ? 200 : 503).json({ status: mongo ? "ok" : "degraded", mongo: mongo ? "ok" : "down", ml: mlStatus });
+      // Redis down means queued work cannot be accepted: not ready. The ML service is optional.
+      const ready = mongo && redis !== "down";
+      res.status(ready ? 200 : 503).json({ status: ready ? "ok" : "degraded", mongo: mongo ? "ok" : "down", redis, queue: jobs.mode, ml: mlStatus });
     }),
   );
 
@@ -143,32 +142,25 @@ export function createApp(options: AppOptions): SentinelApp {
     authRoutes(config, { authRateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 } }),
     flowRoutes(config),
     statsRoutes(config),
-    datasetRoutes(config, {
-      jobs,
-      logger,
-      onImported: (orgId, datasetId) => {
-        scheduleScoring(orgId);
-        scheduleDetections(orgId, datasetId);
-        scheduleAssetRefresh(orgId);
-      },
-    }),
+    datasetRoutes(config, { schedule, uploadDir: config.uploadDir ?? tmpdir() }),
     incidentRoutes(config),
     incidentWorkflowRoutes(config),
     incidentTraceRoutes(config),
     detectionSettingsRoutes(config),
     memberRoutes(config),
     auditRoutes(config),
-    modelRoutes(config, { ml, scoring, scheduleScoring }),
+    modelRoutes(config, { ml, scoring, scheduleScoring: schedule.score, scoringBusy: (orgId) => schedule.busy("score", orgId) }),
     alertRoutes(config),
-    ruleRoutes(config, { rules, scheduleDetections }),
-    assetRoutes(config, { scheduleAssetRefresh }),
+    ruleRoutes(config, { rules, scheduleDetections: schedule.detect }),
+    assetRoutes(config, { scheduleAssetRefresh: schedule.assets }),
     identityRoutes(config),
     validationRoutes(config, { ml }),
+    jobRoutes(config, { queue: jobs }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
 
   app.use(notFound);
   app.use(errorHandler(logger));
 
-  return { app, jobs, scoring, routes: routers.flatMap((r) => r.routes.map((x) => ({ ...x, path: `${API_PREFIX}${x.path}` }))) };
+  return { app, jobs, schedule, scoring, routes: routers.flatMap((r) => r.routes.map((x) => ({ ...x, path: `${API_PREFIX}${x.path}` }))) };
 }

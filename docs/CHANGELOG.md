@@ -2,6 +2,22 @@
 
 All notable changes. Dates are UTC.
 
+## 2026-10-21
+
+### Durable jobs (roadmap 1.5)
+- Imports, scoring, detections and the asset refresh run as BullMQ jobs on Redis when `REDIS_URL` is set,
+  with 3 attempts, exponential backoff and a dead-letter list (`failed_jobs`); without Redis the same
+  handlers run in-process with the same retry policy, so tests and the e2e suite need no service.
+- Alert evidence is claimed in the same write as the model verdict and settled once per claim key:
+  a job that crashes, is retried or stalls (worker killed) neither loses nor double-counts flows.
+  Rule hit keys are checked atomically inside the alert update.
+- A retried import removes the rows of its interrupted attempt first (no duplicates).
+- `GET /jobs/status`, `GET /jobs/failed` and an audited `POST /jobs/failed/:id/retry` (Owner / Admin).
+- `/readyz` reports Redis; Compose gains a `redis` service (healthcheck, `noeviction`, volume) and an
+  uploads volume; `src/worker.ts` runs workers without HTTP (`RUN_WORKERS=false` on the API).
+- CI starts a Redis service for the BullMQ integration tests (skipped locally without
+  `SENTINEL_TEST_REDIS_URL`).
+
 ## 2026-10-20
 
 ### Foundation (Phase 0)

@@ -27,6 +27,15 @@ jobs:
       matrix:
         # Node 20 reached end of life in April 2026; 22 is the oldest maintained LTS.
         node: [22, 24]
+    # Throwaway Redis for the BullMQ integration tests (apps/api/tests/jobs.redis.test.ts).
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      SENTINEL_TEST_REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

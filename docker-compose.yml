@@ -1,7 +1,7 @@
 # Sentinel stack. Copy .env.example to .env (repository root) and set the secrets first.
-#   docker compose up --build              # mongo, ml, api, web  -> http://localhost:8080
+#   docker compose up --build              # mongo, redis, ml, api, web  -> http://localhost:8080
 #   docker compose --profile train run --rm ml-train   # train the sample benchmark model inside the ML image
-# MongoDB is not published on the host, so it never collides with a local MongoDB on 27017.
+# MongoDB and Redis are not published on the host, so they never collide with local installs.
 name: sentinel
 
 services:
@@ -12,6 +12,18 @@ services:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
+      retries: 10
+
+  # Durable job queue (BullMQ): imports, scoring and detections survive an API restart.
+  # noeviction: BullMQ must never lose queue keys under memory pressure.
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
       retries: 10
 
   ml:
@@ -42,8 +54,13 @@ services:
       TRUST_PROXY: "1"
       ML_SERVICE_URL: http://ml:8000
       ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
+      REDIS_URL: redis://redis:6379
+      # Uploads wait here for their import job; a volume, so a retried import still finds its file.
+      UPLOAD_DIR: /var/lib/sentinel/uploads
+    volumes: [uploads:/var/lib/sentinel/uploads]
     depends_on:
       mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
       ml: { condition: service_healthy }
 
   web:
@@ -54,4 +71,6 @@ services:
 
 volumes:
   mongo-data:
+  redis-data:
+  uploads:
   ml-artifacts:

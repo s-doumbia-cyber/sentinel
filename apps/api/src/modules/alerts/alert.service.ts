@@ -10,6 +10,13 @@ export const ALERT_BUCKET_MS = 10 * 60 * 1000;
 const MAX_FLOW_IDS = 50;
 const MAX_HIT_KEYS = 500;
 const MAX_RULE_HITS = 20;
+const MAX_CLAIM_KEYS = 500;
+/** A claim older than this whose job is gone (crash without retry) is settled by the next run. */
+export const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export function alertDedupeKey(orgId: Types.ObjectId, src: string | null, dst: string | null, type: string, at: Date): string {
   const bucket = Math.floor(at.getTime() / ALERT_BUCKET_MS);
@@ -32,6 +39,8 @@ interface Evidence {
   modelVersion?: string;
   ruleKey?: string;
   hit?: RuleHit;
+  /** Idempotency key for one claimed batch of model evidence (see settleClaim). */
+  claimKey?: string;
   flowIds: Types.ObjectId[];
 }
 
@@ -56,8 +65,13 @@ export class AlertService {
   private async upsert(e: Evidence, threshold: number): Promise<"created" | "updated" | "skipped"> {
     const dedupeKey = alertDedupeKey(e.orgId, e.srcIp, e.dstIp, e.type, e.lastSeen);
     const filter = { orgId: e.orgId, dedupeKey };
-    // Re-evaluating the same flows yields the same hit key: count it once.
-    if (e.hit && (await Alert.exists({ ...filter, hitKeys: e.hit.hitKey }))) return "skipped";
+    // Re-evaluating the same flows yields the same hit key, and re-settling a claim the same claim
+    // key: the guard is part of the update filter, so the check and the increment are one atomic step.
+    const guarded = {
+      ...filter,
+      ...(e.hit ? { hitKeys: { $ne: e.hit.hitKey } } : {}),
+      ...(e.claimKey ? { claimKeys: { $ne: e.claimKey } } : {}),
+    };
     const update = {
       $setOnInsert: { type: e.type, srcIp: e.srcIp, dstIp: e.dstIp, dstPort: e.dstPort, status: "needs_review", verdict: null },
       $inc: { count: e.count },
@@ -70,6 +84,7 @@ export class AlertService {
       },
       $push: {
         flowIds: { $each: e.flowIds, $slice: -MAX_FLOW_IDS },
+        ...(e.claimKey ? { claimKeys: { $each: [e.claimKey], $slice: -MAX_CLAIM_KEYS } } : {}),
         ...(e.hit
           ? {
               hitKeys: { $each: [e.hit.hitKey], $slice: -MAX_HIT_KEYS },
@@ -82,14 +97,18 @@ export class AlertService {
       },
     };
     let created = false;
+    let applied = false;
     try {
-      const res = await Alert.updateOne(filter, update, { upsert: true });
+      const res = await Alert.updateOne(guarded, update, { upsert: true });
       created = res.upsertedCount > 0;
+      applied = created || res.modifiedCount > 0;
     } catch (err) {
-      // Two concurrent upserts on a new key: the loser retries as an update.
+      // Two concurrent upserts on a new key, or the guard excluded an existing alert:
+      // retry as a plain update, which matches nothing when the key was already counted.
       if ((err as { code?: number }).code !== 11000) throw err;
-      await Alert.updateOne(filter, update);
+      applied = (await Alert.updateOne(guarded, update)).modifiedCount > 0;
     }
+    if (!applied) return "skipped";
     if (e.topFlow) {
       await Alert.updateOne(
         { ...filter, $or: [{ topConfidence: null }, { topConfidence: { $lt: e.topFlow.confidence } }] },
@@ -110,62 +129,127 @@ export class AlertService {
 
   /**
    * Folds malicious model verdicts into alerts, one update per (src, dst, type, bucket).
-   * Each flow is claimed atomically first, so the scoring path and the backfill
-   * running at the same time never count a flow twice. Trade-off: a crash
-   * between the claim and the alert update loses that evidence (at-most-once);
-   * durable queues (roadmap 1.5) will revisit this.
+   *
+   * Two phases, so a crash can be repaired without losing or double-counting evidence:
+   * 1. claim: flows not yet alerted get `alertClaim = <claimPrefix>:<uuid>` atomically, so
+   *    the scoring path and the backfill running at the same time never take the same flow;
+   * 2. settle: each (claim, alert) group is applied once (the alert remembers the claim key),
+   *    then the flows get `alertedAt`.
+   * A job that dies between the phases leaves claimed flows behind; its retry (same job id,
+   * hence same `claimPrefix`) or any run after STALE_CLAIM_MS settles them (`recoverClaims`).
    *
    * Verdicts below the org's minimum confidence, or involving an allowlisted
-   * address, are claimed with the reason in `alertSuppressed` and create no
+   * address, are marked with the reason in `alertSuppressed` and create no
    * alert; the verdict stays on the flow.
    */
-  async recordModelVerdicts(orgId: Types.ObjectId, policy: AlertPolicy, verdicts: ModelVerdictEvidence[]): Promise<number> {
+  async recordModelVerdicts(
+    orgId: Types.ObjectId,
+    policy: AlertPolicy,
+    verdicts: ModelVerdictEvidence[],
+    claimPrefix = "adhoc",
+  ): Promise<number> {
     const malicious = verdicts.filter((v) => v.label !== "Normal");
     if (!malicious.length) return 0;
     const reasonOf = (v: ModelVerdictEvidence) =>
       isAllowlisted(policy, v.sourceIp, v.destinationIp) ? "allowlisted" : v.confidence < policy.modelAlertMinConfidence ? "below_min_confidence" : null;
     for (const reason of ["allowlisted", "below_min_confidence"] as const) {
       const ids = malicious.filter((v) => reasonOf(v) === reason).map((v) => v.flowId);
-      if (ids.length) await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null }, { $set: { alertedAt: new Date(), alertSuppressed: reason } });
+      if (ids.length) {
+        await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null, alertClaim: null }, { $set: { alertedAt: new Date(), alertSuppressed: reason } });
+      }
     }
-    const threshold = policy.needsReviewThreshold;
-    const claim = randomUUID();
     const ids = malicious.filter((v) => reasonOf(v) === null).map((v) => v.flowId);
     if (!ids.length) return 0;
-    await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null }, { $set: { alertedAt: new Date(), alertClaim: claim } });
-    // Looked up by _id so the check uses the primary index.
-    const claimed = new Set((await Flow.find({ orgId, _id: { $in: ids }, alertClaim: claim }).select("_id").lean()).map((f) => String(f._id)));
-    const groups = new Map<string, ModelVerdictEvidence[]>();
-    for (const v of malicious) {
-      if (!claimed.has(String(v.flowId))) continue;
-      const k = alertDedupeKey(orgId, v.sourceIp, v.destinationIp, v.label, v.timestamp);
-      groups.set(k, [...(groups.get(k) ?? []), v]);
+    const claim = this.newClaim(claimPrefix);
+    await Flow.updateMany({ orgId, _id: { $in: ids }, alertedAt: null, alertClaim: null }, { $set: { alertClaim: claim, alertClaimedAt: new Date() } });
+    return this.settleClaim(orgId, claim, policy.needsReviewThreshold);
+  }
+
+  newClaim(prefix = "adhoc"): string {
+    return `${prefix}:${randomUUID()}`;
+  }
+
+  /**
+   * Alert fields to store with a fresh verdict: nothing for Normal, the suppression
+   * reason for allowlisted / low-confidence verdicts, an open claim otherwise.
+   */
+  claimFields(
+    policy: AlertPolicy,
+    claim: string,
+    v: { label: AttackClass; confidence: number; sourceIp: string; destinationIp: string },
+    now: Date,
+  ): Record<string, unknown> {
+    if (v.label === "Normal") return {};
+    if (isAllowlisted(policy, v.sourceIp, v.destinationIp)) return { alertedAt: now, alertSuppressed: "allowlisted" };
+    if (v.confidence < policy.modelAlertMinConfidence) return { alertedAt: now, alertSuppressed: "below_min_confidence" };
+    return { alertClaim: claim, alertClaimedAt: now };
+  }
+
+  /** Applies one claim's evidence to its alerts (once per claim key) and marks the flows alerted. */
+  async settleClaim(orgId: Types.ObjectId, claim: string, threshold: number): Promise<number> {
+    const flows = await Flow.find({ orgId, alertClaim: claim, alertClaimedAt: { $type: "date" }, alertedAt: null })
+      .select("_id timestamp sourceIp destinationIp destinationPort scored")
+      .lean();
+    const groups = new Map<string, typeof flows>();
+    for (const f of flows) {
+      if (!f.scored || f.scored.label === "Normal") continue;
+      const k = alertDedupeKey(orgId, f.sourceIp, f.destinationIp, f.scored.label, f.timestamp);
+      groups.set(k, [...(groups.get(k) ?? []), f]);
     }
     let created = 0;
-    for (const group of groups.values()) {
+    for (const [key, group] of groups) {
       const first = group[0];
-      if (!first) continue;
-      const top = group.reduce((a, b) => (b.confidence > a.confidence ? b : a));
+      if (!first?.scored) continue;
+      const label = first.scored.label as AttackClass;
+      const top = group.reduce((a, b) => ((b.scored?.confidence ?? 0) > (a.scored?.confidence ?? 0) ? b : a));
+      const topConfidence = top.scored?.confidence ?? 0;
       const outcome = await this.upsert(
         {
           orgId,
-          type: first.label,
+          type: label,
           srcIp: first.sourceIp,
           dstIp: first.destinationIp,
           dstPort: first.destinationPort,
           firstSeen: new Date(Math.min(...group.map((g) => g.timestamp.getTime()))),
           lastSeen: new Date(Math.max(...group.map((g) => g.timestamp.getTime()))),
           count: group.length,
-          severity: severityRank(DEFAULT_SEVERITY_BY_CLASS[first.label]),
-          source: `model:${first.modelVersion}`,
-          confidence: top.confidence,
-          topFlow: { id: top.flowId, confidence: top.confidence },
-          modelVersion: first.modelVersion,
-          flowIds: group.map((g) => g.flowId).slice(-MAX_FLOW_IDS),
+          severity: severityRank(DEFAULT_SEVERITY_BY_CLASS[label]),
+          source: `model:${first.scored.modelVersion}`,
+          confidence: topConfidence,
+          topFlow: { id: top._id, confidence: topConfidence },
+          modelVersion: first.scored.modelVersion,
+          claimKey: `${claim}|${key}`,
+          flowIds: group.map((g) => g._id).slice(-MAX_FLOW_IDS),
         },
         threshold,
       );
       if (outcome === "created") created++;
+      await Flow.updateMany(
+        { orgId, _id: { $in: group.map((g) => g._id) }, alertClaim: claim, alertedAt: null },
+        { $set: { alertedAt: new Date() }, $unset: { alertClaimedAt: 1 } },
+      );
+    }
+    // Flows whose verdict is no longer malicious: nothing to count, close the claim.
+    await Flow.updateMany(
+      { orgId, alertClaim: claim, alertClaimedAt: { $type: "date" }, alertedAt: null },
+      { $set: { alertedAt: new Date() }, $unset: { alertClaimedAt: 1 } },
+    );
+    return created;
+  }
+
+  /**
+   * Settles claims left by a run that died: those of the given jobs (a retry knows its own
+   * job id, a dead-letter retry the failed one) and any older than STALE_CLAIM_MS. Safe to
+   * run next to live claims: settling is idempotent per claim key.
+   */
+  async recoverClaims(orgId: Types.ObjectId, policy: AlertPolicy, jobPrefixes: (string | undefined)[] = []): Promise<number> {
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const or: Record<string, unknown>[] = [{ alertClaimedAt: { $lt: staleBefore } }];
+    for (const prefix of jobPrefixes) if (prefix) or.push({ alertClaim: { $regex: `^${escapeRegex(prefix)}:` } });
+    const claims = await Flow.distinct("alertClaim", { orgId, alertClaimedAt: { $type: "date" }, alertedAt: null, $or: or });
+    let created = 0;
+    for (const claim of claims) {
+      if (typeof claim === "string") created += await this.settleClaim(orgId, claim, policy.needsReviewThreshold);
     }
     return created;
   }

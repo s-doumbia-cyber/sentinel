@@ -4,7 +4,7 @@ import { AppError } from "../../lib/errors.js";
 import type { Logger } from "../../lib/logger.js";
 import { Org } from "../../models/identity.js";
 import { Flow, type FlowDoc } from "../../models/tenant.js";
-import type { AlertService, ModelVerdictEvidence } from "../alerts/alert.service.js";
+import type { AlertService } from "../alerts/alert.service.js";
 import { loadAlertPolicy, policyFromSettings, type AlertPolicy } from "../alerts/policy.js";
 import { MlContractError, isKnownClass, type MlClient } from "../models/ml.client.js";
 
@@ -44,7 +44,11 @@ export class ScoringService {
     return this.running.has(String(orgId));
   }
 
-  async scorePending(orgId: Types.ObjectId): Promise<SchemaRunResult[]> {
+  /**
+   * `claimPrefix` (the job id) lets a retry of the same job settle the alert claims it left
+   * open; `resumeOf` lists failed jobs whose claims this run takes over (dead-letter retry).
+   */
+  async scorePending(orgId: Types.ObjectId, claimPrefix?: string, resumeOf: string[] = []): Promise<SchemaRunResult[]> {
     const key = String(orgId);
     if (this.running.has(key)) return [];
     this.running.add(key);
@@ -53,13 +57,15 @@ export class ScoringService {
       if (!org) throw AppError.notFound("Organisation");
       const active = activeModelsOf(org);
       const policy = policyFromSettings(org.settings);
+      // Claims left open by an earlier attempt of this job (or a crashed run) are settled first.
+      await this.alerts.recoverClaims(orgId, policy, [claimPrefix, ...resumeOf]);
       const results: SchemaRunResult[] = [];
       for (const schema of FEATURE_SCHEMA_IDS) {
         const pending = await Flow.countDocuments({ orgId, scoreStatus: "pending", featureSchema: schema });
         const version = active[schema] ?? null;
         if (!pending) results.push({ schema, status: "nothing_pending", modelVersion: version, scored: 0, errored: 0 });
         else if (!version) results.push({ schema, status: "no_active_model", modelVersion: null, scored: 0, errored: 0 });
-        else results.push(await this.scoreSchema(orgId, schema, version, policy));
+        else results.push(await this.scoreSchema(orgId, schema, version, policy, claimPrefix));
       }
       return results;
     } finally {
@@ -67,7 +73,13 @@ export class ScoringService {
     }
   }
 
-  private async scoreSchema(orgId: Types.ObjectId, schema: FeatureSchemaId, version: string, policy: AlertPolicy): Promise<SchemaRunResult> {
+  private async scoreSchema(
+    orgId: Types.ObjectId,
+    schema: FeatureSchemaId,
+    version: string,
+    policy: AlertPolicy,
+    claimPrefix?: string,
+  ): Promise<SchemaRunResult> {
     const threshold = policy.needsReviewThreshold;
     const result: SchemaRunResult = { schema, status: "scored", modelVersion: version, scored: 0, errored: 0 };
     for (;;) {
@@ -103,6 +115,9 @@ export class ScoringService {
       }
 
       const now = new Date();
+      // The alert claim is written together with the verdict: a crash can never leave a
+      // malicious verdict that is neither pending (re-scored) nor claimed (recovered).
+      const claim = this.alerts.newClaim(claimPrefix);
       const byId = new Map(response.results.map((r) => [r.id, r]));
       const ops: AnyBulkWriteOperation[] = flows.map((f) => {
         const r = byId.get(String(f._id));
@@ -113,11 +128,13 @@ export class ScoringService {
           return { updateOne: { filter, update: { $set: { scoreStatus: "error", scoreError: `Model returned unknown class ${r.label}` } } } };
         }
         const label = r.label as AttackClass;
+        const alertFields = this.alerts.claimFields(policy, claim, { label, confidence: r.confidence, sourceIp: f.sourceIp, destinationIp: f.destinationIp }, now);
         return {
           updateOne: {
             filter,
             update: {
               $set: {
+                ...alertFields,
                 scoreStatus: "scored",
                 scoreError: null,
                 scored: {
@@ -137,23 +154,7 @@ export class ScoringService {
       });
       const write = await Flow.bulkWrite(ops, { ordered: false });
       // Malicious verdicts become (or join) alerts right away.
-      const evidence: ModelVerdictEvidence[] = flows.flatMap((f) => {
-        const r = byId.get(String(f._id));
-        if (!r || !isKnownClass(r.label) || r.label === "Normal") return [];
-        return [
-          {
-            flowId: f._id,
-            timestamp: f.timestamp,
-            sourceIp: f.sourceIp,
-            destinationIp: f.destinationIp,
-            destinationPort: f.destinationPort,
-            label: r.label as AttackClass,
-            confidence: r.confidence,
-            modelVersion: response.modelVersion,
-          },
-        ];
-      });
-      await this.alerts.recordModelVerdicts(orgId, policy, evidence);
+      await this.alerts.settleClaim(orgId, claim, threshold);
       const errored = ops.filter((o) => "updateOne" in o && (o.updateOne.update as { $set: { scoreStatus: string } }).$set.scoreStatus === "error").length;
       result.errored += errored;
       result.scored += write.modifiedCount - errored;
@@ -165,9 +166,9 @@ export class ScoringService {
    * Folds already-scored malicious flows that never produced an alert (scored
    * before alerting existed, or migrated) into alerts. Idempotent via `alertedAt`.
    */
-  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId): Promise<number> {
+  async alertUnalerted(orgId: Types.ObjectId, datasetId?: Types.ObjectId, claimPrefix?: string, resumeOf: string[] = []): Promise<number> {
     const policy = await loadAlertPolicy(orgId);
-    let created = 0;
+    let created = await this.alerts.recoverClaims(orgId, policy, [claimPrefix, ...resumeOf]);
     for (;;) {
       const flows = await Flow.find({
         orgId,
@@ -175,6 +176,8 @@ export class ScoringService {
         scoreStatus: "scored",
         "scored.label": { $ne: "Normal" },
         alertedAt: null,
+        // Flows claimed by a run in progress are settled by that run (or recovered above).
+        alertClaim: null,
       })
         .sort({ _id: 1 })
         .limit(BATCH)
@@ -200,6 +203,7 @@ export class ScoringService {
               ]
             : [],
         ),
+        claimPrefix,
       );
     }
   }

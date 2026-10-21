@@ -55,7 +55,7 @@ export function toAssetResponse(a: LeanAsset, alertCount?: number) {
 }
 
 export interface AssetRouteDeps {
-  scheduleAssetRefresh: (orgId: Types.ObjectId) => void;
+  scheduleAssetRefresh: (orgId: Types.ObjectId) => Promise<void>;
 }
 
 export function assetRoutes(config: AppConfig, deps: AssetRouteDeps): PolicyRouter {
@@ -234,7 +234,7 @@ export function assetRoutes(config: AppConfig, deps: AssetRouteDeps): PolicyRout
     ah(async (req, res) => {
       const { orgId } = authOf(req);
       await auditFromRequest(req, "assets.refresh", { type: "org", id: String(orgId) });
-      deps.scheduleAssetRefresh(orgId);
+      await deps.scheduleAssetRefresh(orgId);
       res.status(202).json({ started: true });
     }),
   );

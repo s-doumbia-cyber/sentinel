@@ -30,6 +30,8 @@ export const ACTIONS = [
   "assets:write",
   "identity:read",
   "identity:manage",
+  "jobs:read",
+  "jobs:manage",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -64,6 +66,9 @@ export const PERMISSIONS: Record<Action, readonly Role[]> = {
   // Usernames and device names are personal data: not shown to Viewers.
   "identity:read": WRITERS,
   "identity:manage": ADMINS,
+  // Background jobs and their dead letters: operational detail for administrators.
+  "jobs:read": ADMINS,
+  "jobs:manage": ADMINS,
 };
 
 export function can(role: Role, action: Action): boolean {
