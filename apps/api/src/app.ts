@@ -14,6 +14,7 @@ import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { alertRoutes } from "./modules/alerts/alert.routes.js";
 import { assetRoutes } from "./modules/assets/asset.routes.js";
 import { refreshAssets } from "./modules/assets/asset.service.js";
+import { entityRoutes } from "./modules/entities/entity.routes.js";
 import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
@@ -163,6 +164,7 @@ export function createApp(options: AppOptions): SentinelApp {
     ruleRoutes(config, { rules, scheduleDetections }),
     assetRoutes(config, { scheduleAssetRefresh }),
     identityRoutes(config),
+    entityRoutes(config),
     validationRoutes(config, { ml }),
   ];
   for (const r of routers) app.use(API_PREFIX, r.router);
