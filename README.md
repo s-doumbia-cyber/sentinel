@@ -140,15 +140,18 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 
 ## Testing
 
-- `packages/shared`: 97 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
+- `packages/shared`: 100 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
   schema drift, rules DSL, attribution grading, device estimates, knowledge base, blocklist syntax).
-- `apps/api`: 108 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
+- `apps/api`: 134 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
   in-memory MongoDB): configuration, auth (rotation, reuse detection, logout-all, CSRF, rate limit,
   legacy hash upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import,
   scoring, stats, evaluation, migration, alerts and rules, correlation, incident events and trace,
   response simulations, reports, assets and their history, identity attribution and lookup,
-  validation runs, demo seed.
-- `apps/web`: API client, class merging, rule descriptions, evidence and attribution panels (Testing Library).
+  validation runs, demo seed, the entity graph (bounds, truncation, tenancy) and the executive report
+  and PDFs (numbers equal the dashboard's for the same range).
+- `apps/web`: 75 tests (Testing Library): API client and downloads, class merging, rule descriptions,
+  evidence and attribution panels, graph view and model, command palette and shortcuts, incident board
+  (keyboard moves, rollback), reports page.
 - `e2e` (Playwright, Chromium): the analyst journey on the DEMO scenario (alert → observed / inferred /
   unknown → DHCP attribution → triage → correlated incident → attack timeline → blocklist simulation
   → report → investigation log), tokens absent from web storage, no horizontal scroll at 375 px,

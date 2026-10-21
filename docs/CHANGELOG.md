@@ -2,6 +2,31 @@
 
 All notable changes. Dates are UTC.
 
+## 2026-10-21
+
+### Investigation UI and reports
+- **Entity graph** (ROADMAP 3.4, 4.10): `GET /entities/ip/:value/graph` and `GET /incidents/:id/graph`
+  (bounded, org-scoped, aggregated directed edges with flow counts, model-flagged counts and alert
+  markers; truncation reported). `GraphView` (Cytoscape, lazy loaded) on the asset page and on a new
+  *Graph* tab of the incident page, with pan / zoom (mouse, touch, keyboard), click-to-open, a list
+  alternative, range and reach in the URL, no animation under `prefers-reduced-motion`.
+- **Command palette and shortcuts** (4.4, 4.7): cmdk on Ctrl/Cmd+K (pages for the role, address by IP,
+  alert / incident / flow by id, theme, shortcut list), `?` overlay, G then a letter for every page,
+  and E / F / I in the alert panel through the existing API calls.
+- **Incident board** (4.9): dnd-kit drag and drop with mouse, long press and keyboard, screen-reader
+  announcements, optimistic update with rollback through the audited incident update, read-only for
+  Viewers. Columns wrap instead of scrolling sideways.
+- **Reports** (3.7): `GET /reports/executive` (same functions as the dashboard, so the same range gives
+  the same numbers), time to triage, quality on labelled data, provenance, limitations; server-side PDFs
+  with pdfkit for the executive and the incident report (audited); Reports page with the period in
+  the URL and an HTML preview mirroring the PDF. `GET /alerts/summary` accepts `from` / `to`.
+- Defects found by the new Playwright journeys and fixed: a resting mouse hijacking keyboard drags,
+  dnd-kit skipping columns when the board scrolled sideways, a graph that filled the canvas with two
+  nodes, graph controls overflowing at 375 px, the shortcut list not reachable by keyboard.
+- Dependencies (owner-approved): cytoscape, cmdk, @dnd-kit/*, pdfkit. Alerts get a `{orgId, dstIp}` index.
+- Not done: CSV / XLSX exports, frame-rate measurement of a 500-node graph, screen-reader pass,
+  i18n of the new copy (English only, as briefed).
+
 ## 2026-10-20
 
 ### Foundation (Phase 0)
