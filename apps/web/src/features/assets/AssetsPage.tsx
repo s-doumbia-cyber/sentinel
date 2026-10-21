@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { AssetLink, AttributionPanel } from "@/components/evidence/Evidence";
 import { AddressIdentityHistory } from "@/features/identity/IdentityContext";
 import { AssetHistory } from "./AssetHistory";
+import { EntityGraphCard } from "@/features/graph/GraphCards";
 import { NeutralBadge, SeverityBadge, SourceKindBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/Card";
@@ -344,6 +345,7 @@ export function AssetDetailPage() {
             )}
           </CardBody>
         </Card>
+        <EntityGraphCard ip={a.ip} lastSeen={a.lastSeen} />
         <Card>
           <CardHeader title="Relations" subtitle="Busiest peers in stored flows." />
           <CardBody className="grid gap-4 text-small sm:grid-cols-2">

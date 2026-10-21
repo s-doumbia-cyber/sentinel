@@ -154,7 +154,6 @@ describe("entity graph", () => {
     const ids = new Set((res.body.nodes as N[]).map((n) => n.id));
     expect((res.body.edges as E[]).every((e) => ids.has(e.source) && ids.has(e.target))).toBe(true);
     // The roadmap target (3.4) is 500 ms; the margin absorbs a loaded CI runner.
-    console.info(`graph with 500 nodes: ${elapsed.toFixed(0)} ms`);
     expect(elapsed).toBeLessThan(1500);
 
     const small = await request(sa.app).get(`${API}/entities/ip/10.9.9.9/graph`).query({ maxNodes: 10 }).set(auth);
