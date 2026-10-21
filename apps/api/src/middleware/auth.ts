@@ -14,7 +14,7 @@ const { isValidObjectId, Types } = mongoose;
  * active org from `X-Org-Id`, validated against the caller's memberships.
  * Without the header, the caller's oldest membership is used.
  */
-export function requireAuth(config: AppConfig): RequestHandler {
+export function requireAuth(config: AppConfig, opts: { allowNoOrg?: boolean } = {}): RequestHandler {
   return ah(async (req, _res, next) => {
     const header = req.header("authorization");
     if (!header?.startsWith("Bearer ")) throw AppError.unauthenticated();
@@ -32,11 +32,13 @@ export function requireAuth(config: AppConfig): RequestHandler {
     }).lean();
     if (!session) throw AppError.unauthenticated("Session has ended. Please sign in again.");
 
+    req.account = { userId: new Types.ObjectId(claims.sub), sessionId: new Types.ObjectId(claims.sid) };
     const requestedOrg = req.header("x-org-id");
     if (requestedOrg !== undefined && !isValidObjectId(requestedOrg)) throw AppError.validation("Invalid X-Org-Id header");
     const membership = requestedOrg
       ? await Membership.findOne({ userId: claims.sub, orgId: requestedOrg }).lean()
       : await Membership.findOne({ userId: claims.sub }).sort({ createdAt: 1 }).lean();
+    if (!membership && opts.allowNoOrg) return next();
     if (!membership) {
       // Same answer whether the org exists or not.
       throw requestedOrg ? AppError.notFound("Organisation") : AppError.forbidden("You are not a member of any organisation");

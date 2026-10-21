@@ -79,7 +79,7 @@ function slugify(name: string): string {
   return `${base || "org"}-${randomBytes(3).toString("hex")}`;
 }
 
-async function issueTokens(config: AppConfig, userId: Types.ObjectId, req: Request): Promise<IssuedTokens> {
+export async function issueTokens(config: AppConfig, userId: Types.ObjectId, req: Request): Promise<IssuedTokens> {
   const secret = newRefreshSecret();
   const refreshExpiresAt = new Date(Date.now() + config.auth.refreshTtlDays * 86_400_000);
   const session = await AuthSession.create({

@@ -35,7 +35,7 @@ function cookieOptions(expires?: Date): CookieOptions {
   return { httpOnly: true, secure: true, sameSite: "strict", path: COOKIE_PATH, ...(expires ? { expires } : {}) };
 }
 
-function setRefreshCookie(res: Response, token: string, expires: Date) {
+export function setRefreshCookie(res: Response, token: string, expires: Date) {
   res.cookie(REFRESH_COOKIE, token, cookieOptions(expires));
 }
 

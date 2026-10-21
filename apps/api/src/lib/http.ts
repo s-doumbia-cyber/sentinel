@@ -13,10 +13,17 @@ export interface AuthContext {
   role: Role;
 }
 
+/** The signed-in user, set even when they belong to no org (policy `account`). */
+export interface AccountContext {
+  userId: Types.ObjectId;
+  sessionId: Types.ObjectId;
+}
+
 declare module "express-serve-static-core" {
   interface Request {
     id: string;
     auth?: AuthContext;
+    account?: AccountContext;
   }
 }
 
@@ -24,6 +31,11 @@ declare module "express-serve-static-core" {
 export function authOf(req: Request): AuthContext {
   if (!req.auth) throw AppError.unauthenticated();
   return req.auth;
+}
+
+export function accountOf(req: Request): AccountContext {
+  if (!req.account) throw AppError.unauthenticated();
+  return req.account;
 }
 
 const REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;

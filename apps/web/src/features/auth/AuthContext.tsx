@@ -16,6 +16,10 @@ interface AuthValue {
   register: (input: { name: string; email: string; password: string; orgName?: string }) => Promise<void>;
   logout: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
+  /** Creates the account from an invitation and signs in, landing in the invited org. */
+  acceptInvite: (input: { token: string; name: string; password: string }) => Promise<void>;
+  /** Re-reads the account and memberships (after joining or leaving an org). */
+  reloadSession: (preferredOrgId?: string) => Promise<void>;
   setUser: (user: User) => void;
   /** Cosmetic only: the API enforces every permission. */
   can: (action: Action) => boolean;
@@ -132,6 +136,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await api("/auth/logout", { method: "POST", csrf: true });
         } finally {
           reset();
+        }
+      },
+      async acceptInvite(input) {
+        const res = await api<AuthResponse & { joinedOrgId: string }>("/invites/accept", { method: "POST", body: input });
+        setAccessToken(res.accessToken);
+        rememberOrg(res.joinedOrgId);
+        adopt(res.user, res.orgs);
+      },
+      async reloadSession(preferredOrgId) {
+        // Without X-Org-Id the API answers for the oldest remaining membership.
+        setActiveOrg(null);
+        rememberOrg(preferredOrgId ?? null);
+        queryClient.clear();
+        try {
+          const me = await api<MeResponse>("/me");
+          adopt(me.user, me.orgs);
+        } catch {
+          // No membership left anywhere: nothing in the app is reachable, so sign out.
+          try {
+            await api("/auth/logout", { method: "POST", csrf: true });
+          } finally {
+            reset();
+          }
         }
       },
       async switchOrg(orgId) {

@@ -4,6 +4,15 @@ All notable changes. Dates are UTC.
 
 ## 2026-10-21
 
+### Team invitations and member management (roadmap 5.1)
+- Owners / Admins create single-use invitation links (1-14 days, one email, token stored as SHA-256 and
+  shown once, sent in the URL fragment). Only Owners can invite or revoke Owners.
+- `/accept-invite` page: new people create their account from the invitation; existing accounts accept
+  while signed in with the invited email. Public endpoints are rate-limited and answer the same 404 for
+  unknown, used, revoked and expired links.
+- Remove a member and leave an organisation, with last-Owner safeguards that survive concurrent changes.
+- Audit actions `invite.create`, `invite.revoke`, `invite.accept`, `member.remove`, `member.leave`.
+
 ### Durable jobs (roadmap 1.5)
 - Imports, scoring, detections and the asset refresh run as BullMQ jobs on Redis when `REDIS_URL` is set,
   with 3 attempts, exponential backoff and a dead-letter list (`failed_jobs`); without Redis the same

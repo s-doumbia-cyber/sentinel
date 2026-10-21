@@ -6,9 +6,10 @@ import { authorize, requireAuth } from "../middleware/auth.js";
 /**
  * `public`: no authentication (login, register, health).
  * `self`: any authenticated member acting on their own account.
+ * `account`: authenticated, even without any membership (accepting an invitation).
  * An `Action`: checked against the role matrix by `authorize()`.
  */
-export type Policy = "public" | "self" | Action;
+export type Policy = "public" | "self" | "account" | Action;
 type Method = "get" | "post" | "patch" | "put" | "delete";
 
 export interface RouteInfo {
@@ -33,8 +34,8 @@ export class PolicyRouter {
 
   route(method: Method, path: string, policy: Policy, ...handlers: RequestHandler[]): this {
     const guards: RequestHandler[] = [];
-    if (policy !== "public") guards.push(requireAuth(this.config));
-    if (policy !== "public" && policy !== "self") guards.push(authorize(policy));
+    if (policy !== "public") guards.push(requireAuth(this.config, { allowNoOrg: policy === "account" }));
+    if (policy !== "public" && policy !== "self" && policy !== "account") guards.push(authorize(policy));
     this.router[method](path, ...guards, ...handlers);
     this.routes.push({ method, path: `${this.prefix}${path}`, policy, mutating: method !== "get" });
     return this;

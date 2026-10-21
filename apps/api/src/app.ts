@@ -27,6 +27,7 @@ import { detectionSettingsRoutes } from "./modules/rules/detection-settings.rout
 import { incidentWorkflowRoutes } from "./modules/incidents/workflow.routes.js";
 import { recordDeadLetter, registerJobHandlers, type Scheduler } from "./modules/jobs/job.handlers.js";
 import { jobRoutes } from "./modules/jobs/job.routes.js";
+import { inviteRoutes } from "./modules/members/invite.routes.js";
 import { memberRoutes } from "./modules/members/member.routes.js";
 import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
@@ -148,6 +149,7 @@ export function createApp(options: AppOptions): SentinelApp {
     incidentTraceRoutes(config),
     detectionSettingsRoutes(config),
     memberRoutes(config),
+    inviteRoutes(config, { rateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 } }),
     auditRoutes(config),
     modelRoutes(config, { ml, scoring, scheduleScoring: schedule.score, scoringBusy: (orgId) => schedule.busy("score", orgId) }),
     alertRoutes(config),

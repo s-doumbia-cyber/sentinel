@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState, Skeleton } from "@/components/ui/States";
 import { useAuth } from "@/features/auth/AuthContext";
+import { AcceptInvitePage } from "@/features/auth/AcceptInvitePage";
 import { LoginPage, RegisterPage } from "@/features/auth/AuthPages";
 
 // Route-level code splitting (§11): charts and heavy pages load on demand.
@@ -58,6 +59,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {/* Public: works signed in (existing account) or not (new account). */}
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
       {/* The report renders without the app chrome so it prints cleanly. */}
       <Route
         path="/incidents/:id/report"
