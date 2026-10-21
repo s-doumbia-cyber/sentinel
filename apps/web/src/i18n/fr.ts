@@ -198,6 +198,15 @@ export const fr: Translation = {
       "Action irréversible. Vous êtes membre de {{count}} organisations ; celles dont vous êtes le seul membre sont supprimées avec leurs flux, jeux de données, incidents et journal d’audit.",
     deleteTyped: "supprimer mon compte",
   },
+  chart: {
+    malicious: "Malveillant (verdict du modèle)",
+    maliciousShort: "Malveillant (modèle)",
+    other: "Bénin ou sans score",
+    otherShort: "Bénin ou sans score",
+    empty: "Aucun flux sur cette période.",
+    summaryPeak: "{{total}} flux, dont {{malicious}} jugés malveillants par le modèle. Pic de {{peak}} flux malveillants à {{at}} UTC.",
+    summaryNone: "{{total}} flux, aucun jugé malveillant par le modèle.",
+  },
   palette: {
     label: "Rechercher des pages, des adresses, des alertes et des incidents",
     placeholder: "Rechercher une page, une adresse IP ou un identifiant d’alerte / d’incident",

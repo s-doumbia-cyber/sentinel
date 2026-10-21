@@ -158,7 +158,7 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
               </div>
             </div>
             <p className="mt-2 text-caption text-fg-3">
-              Shortcuts: <kbd className="font-mono">E</kbd> acknowledge · <kbd className="font-mono">F</kbd> false positive · <kbd className="font-mono">I</kbd> incident · <kbd className="font-mono">?</kbd> all shortcuts
+              Shortcuts: <kbd className="font-mono">E</kbd> acknowledge Â· <kbd className="font-mono">F</kbd> false positive Â· <kbd className="font-mono">I</kbd> incident Â· <kbd className="font-mono">?</kbd> all shortcuts
             </p>
             {a.verdict && (
               <p className="mt-2 text-caption text-fg-3">

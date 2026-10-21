@@ -198,6 +198,15 @@ export const en = {
       "This cannot be undone. You are a member of {{count}} organisations; those where you are the only member are deleted with their flows, datasets, incidents and audit log.",
     deleteTyped: "delete my account",
   },
+  chart: {
+    malicious: "Malicious (model verdict)",
+    maliciousShort: "Malicious (model)",
+    other: "Benign or not scored",
+    otherShort: "Benign or unscored",
+    empty: "No flows in this range.",
+    summaryPeak: "{{total}} flows, {{malicious}} judged malicious by the model. Peak of {{peak}} malicious flows at {{at}} UTC.",
+    summaryNone: "{{total}} flows, none judged malicious by the model.",
+  },
   palette: {
     label: "Search pages, addresses, alerts and incidents",
     placeholder: "Search pages, an IP address, or an alert / incident id",

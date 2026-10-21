@@ -184,7 +184,7 @@ export function IncidentsPage() {
               { id: incident.id, status: to },
               {
                 onSuccess: () => toast.success(`Moved to ${to}`),
-                onError: (e) => toast.error(`Could not move “${incident.title}”: ${errorMessage(e)}. It is back in ${incident.status}.`),
+                onError: (e) => toast.error(`Could not move â€œ${incident.title}â€: ${errorMessage(e)}. It is back in ${incident.status}.`),
               },
             )
           }
