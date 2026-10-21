@@ -1,5 +1,6 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Building2, ChevronsUpDown, LogOut, MoreHorizontal, Search, Settings, ShieldCheck, SunMoon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { ShortcutsProvider, useShortcuts } from "@/features/shortcuts/ShortcutsProvider";
@@ -19,6 +20,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 /** Opens the command palette; Ctrl+K does the same from anywhere. */
 function SearchButton() {
   const { openPalette } = useShortcuts();
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -27,7 +29,7 @@ function SearchButton() {
       className="flex h-9 items-center gap-2 rounded-md border bg-surface-1 px-3 text-small text-fg-2 hover:border-strong hover:text-fg-1"
     >
       <Search aria-hidden className="h-4 w-4" />
-      <span className="hidden sm:inline">Search</span>
+      <span className="hidden sm:inline">{t("shell.search")}</span>
       <kbd className="hidden rounded-sm border bg-surface-2 px-1.5 font-mono text-caption text-fg-3 md:inline">Ctrl K</kbd>
     </button>
   );
@@ -36,20 +38,21 @@ function SearchButton() {
 function OrgSwitcher() {
   const { orgs, activeOrg, switchOrg } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   if (!activeOrg) return null;
   return (
     <Menu.Root>
       <Menu.Trigger className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border bg-surface-1 px-3 text-small text-fg-1 hover:border-strong">
         <Building2 aria-hidden className="h-4 w-4 text-fg-3" />
         {/* The accessible name must contain the visible text (WCAG 2.5.3), so the purpose is added, not substituted. */}
-        <span className="sr-only">Switch organisation, current:</span>
+        <span className="sr-only">{t("shell.switchOrg")}</span>
         <span className="truncate">{activeOrg.name}</span>
         <span className="rounded-sm bg-surface-3 px-1.5 text-caption text-fg-2">{activeOrg.role}</span>
         <ChevronsUpDown aria-hidden className="h-3.5 w-3.5 text-fg-3" />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Content align="start" sideOffset={6} className="z-50 min-w-[240px] rounded-md border bg-surface-2 p-1 shadow-e2">
-          <Menu.Label className="px-2 py-1.5 text-caption uppercase tracking-[0.04em] text-fg-3">Organisations</Menu.Label>
+          <Menu.Label className="px-2 py-1.5 text-caption uppercase tracking-[0.04em] text-fg-3">{t("shell.organisations")}</Menu.Label>
           {orgs.map((o) => (
             <Menu.Item
               key={o.id}
@@ -73,6 +76,7 @@ function UserMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const toggleTheme = useToggleTheme();
+  const { t } = useTranslation();
   if (!user) return null;
   const initials = user.name
     .split(/\s+/)
@@ -82,7 +86,7 @@ function UserMenu() {
     .toUpperCase();
   return (
     <Menu.Root>
-      <Menu.Trigger className="flex h-9 w-9 items-center justify-center rounded-full border bg-surface-2 text-caption font-semibold text-fg-1 hover:border-strong" aria-label="Account menu">
+      <Menu.Trigger className="flex h-9 w-9 items-center justify-center rounded-full border bg-surface-2 text-caption font-semibold text-fg-1 hover:border-strong" aria-label={t("shell.accountMenu")}>
         {initials || "?"}
       </Menu.Trigger>
       <Menu.Portal>
@@ -93,13 +97,13 @@ function UserMenu() {
           </div>
           <Menu.Separator className="my-1 h-px bg-surface-3" />
           <Menu.Item onSelect={toggleTheme} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
-            <SunMoon aria-hidden className="h-4 w-4" /> Toggle theme
+            <SunMoon aria-hidden className="h-4 w-4" /> {t("shell.toggleTheme")}
           </Menu.Item>
           <Menu.Item onSelect={() => navigate("/settings")} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
-            <Settings aria-hidden className="h-4 w-4" /> Settings
+            <Settings aria-hidden className="h-4 w-4" /> {t("shell.settings")}
           </Menu.Item>
           <Menu.Item onSelect={() => void logout()} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
-            <LogOut aria-hidden className="h-4 w-4" /> Sign out
+            <LogOut aria-hidden className="h-4 w-4" /> {t("shell.signOut")}
           </Menu.Item>
         </Menu.Content>
       </Menu.Portal>
@@ -111,18 +115,19 @@ function UserMenu() {
 function MobileMore({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { t } = useTranslation();
   const active = items.some((i) => pathname.startsWith(i.to));
   return (
     <Menu.Root>
-      <Menu.Trigger className={cn("flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-caption outline-none", active ? "text-accent-fg" : "text-fg-3")} aria-label="More pages">
+      <Menu.Trigger className={cn("flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-caption outline-none", active ? "text-accent-fg" : "text-fg-3")} aria-label={t("shell.morePages")}>
         <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        <span>More</span>
+        <span>{t("shell.more")}</span>
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Content side="top" align="end" sideOffset={6} className="z-50 max-h-[70vh] min-w-[220px] overflow-y-auto rounded-md border bg-surface-2 p-1 shadow-e2">
           {items.map((i) => (
             <Menu.Item key={i.to} onSelect={() => navigate(i.to)} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-sm px-2 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
-              <i.icon aria-hidden className="h-4 w-4" /> {i.label}
+              <i.icon aria-hidden className="h-4 w-4" /> {t(`nav.pages.${i.key}`)}
             </Menu.Item>
           ))}
         </Menu.Content>
@@ -134,29 +139,30 @@ function MobileMore({ items }: { items: NavItem[] }) {
 function Shell() {
   const { can } = useAuth();
   const { pathname } = useLocation();
+  const { t } = useTranslation();
   const visible = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.requires || can(i.requires)) })).filter((g) => g.items.length);
   const mobileItems = visible.flatMap((g) => g.items).filter((i) => MOBILE.includes(i.to));
   const moreItems = visible.flatMap((g) => g.items).filter((i) => !MOBILE.includes(i.to));
   return (
     <div className="flex h-full bg-bg-1">
       <a href="#main" className="sr-only z-50 rounded-md bg-surface-2 px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
-        Skip to content
+        {t("shell.skip")}
       </a>
       <aside className="hidden w-[248px] shrink-0 flex-col border-r border-subtle bg-bg-0 md:flex">
         <div className="flex h-14 items-center gap-2 px-5">
           <ShieldCheck aria-hidden className="h-5 w-5 text-accent-fg" strokeWidth={1.75} />
           <span className="text-h3 font-semibold tracking-[-0.01em] text-fg-1">Sentinel</span>
         </div>
-        <nav aria-label="Main" className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
+        <nav aria-label={t("shell.mainNav")} className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
           {visible.map((g) => (
             <div key={g.group}>
-              <p className="px-3 pb-1.5 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">{g.group}</p>
+              <p className="px-3 pb-1.5 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">{t(`nav.groups.${g.group}`)}</p>
               <ul className="space-y-0.5">
                 {g.items.map((i) => (
                   <li key={i.to}>
                     <NavLink to={i.to} end={i.to === "/"} className={navClass}>
                       <i.icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                      {i.label}
+                      {t(`nav.pages.${i.key}`)}
                     </NavLink>
                   </li>
                 ))}
@@ -164,7 +170,7 @@ function Shell() {
             </div>
           ))}
         </nav>
-        <p className="px-5 py-4 text-caption text-fg-3">Network flows only. No live capture is running in this build.</p>
+        <p className="px-5 py-4 text-caption text-fg-3">{t("shell.scope")}</p>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-subtle bg-bg-1 px-4 md:px-6">
@@ -183,7 +189,7 @@ function Shell() {
             <Outlet />
           </div>
         </main>
-        <nav aria-label="Main (mobile)" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-subtle bg-bg-0 md:hidden">
+        <nav aria-label={t("shell.mainNavMobile")} className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-subtle bg-bg-0 md:hidden">
           {mobileItems.map((i) => (
             <NavLink
               key={i.to}
@@ -192,7 +198,7 @@ function Shell() {
               className={({ isActive }) => cn("flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-caption", isActive ? "text-accent-fg" : "text-fg-3")}
             >
               <i.icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              <span className="truncate">{i.label.replace("Command Center", "Overview")}</span>
+              <span className="truncate">{t(`nav.pages.${i.key === "overview" ? "overviewShort" : i.key}`)}</span>
             </NavLink>
           ))}
           <MobileMore items={moreItems} />

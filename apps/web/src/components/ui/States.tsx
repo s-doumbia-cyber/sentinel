@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, Inbox } from "lucide-react";
 import { ApiError, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/format";
@@ -9,8 +10,9 @@ export function Skeleton({ className }: { className?: string }) {
 }
 
 export function SkeletonRows({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
+  const { t } = useTranslation();
   return (
-    <div role="status" aria-label="Loading" className="space-y-2 p-4">
+    <div role="status" aria-label={t("common.loading")} className="space-y-2 p-4">
       {Array.from({ length: rows }, (_, r) => (
         <div key={r} className="flex gap-3">
           {Array.from({ length: cols }, (_, c) => (
@@ -48,17 +50,18 @@ export function EmptyState({
 }
 
 /** What failed, a retry, and the request id for support (§5). */
-export function ErrorState({ error, onRetry, title = "Couldn’t load this data", className }: { error: unknown; onRetry?: () => void; title?: string; className?: string }) {
+export function ErrorState({ error, onRetry, title, className }: { error: unknown; onRetry?: () => void; title?: string; className?: string }) {
+  const { t } = useTranslation();
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   return (
     <div role="alert" className={cn("flex flex-col items-center justify-center gap-2 px-6 py-12 text-center", className)}>
       <AlertTriangle aria-hidden className="h-7 w-7 text-sevfg-high" strokeWidth={1.75} />
-      <p className="text-body font-medium text-fg-1">{title}</p>
+      <p className="text-body font-medium text-fg-1">{title ?? t("common.couldNotLoad")}</p>
       <p className="max-w-md text-small text-fg-2">{errorMessage(error)}</p>
-      {requestId && <p className="font-mono text-caption text-fg-3">Request id: {requestId}</p>}
+      {requestId && <p className="font-mono text-caption text-fg-3">{t("common.requestId", { id: requestId })}</p>}
       {onRetry && (
         <Button size="sm" className="mt-2" onClick={onRetry}>
-          Retry
+          {t("common.retry")}
         </Button>
       )}
     </div>

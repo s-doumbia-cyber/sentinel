@@ -2,6 +2,21 @@
 
 All notable changes. Dates are UTC.
 
+## 2026-10-22
+
+### Interface in French (roadmap 4.13, partial)
+- i18next / react-i18next (pinned). French for navigation, sign-in, registration and the two-factor step,
+  the Command Center, the search palette, severity badges, shared empty / error states and Settings
+  (Profile, Security, Data). Settings → Preferences → Language switches the interface and `<html lang>`;
+  the sign-in page has its own switch, remembered on the browser. The language field states which parts
+  are translated; Hindi shows English. Tests: key / placeholder parity, the sign-in page in French, and an
+  e2e journey (switch, reload, axe check, switch back).
+
+### Merge of the detection, platform and investigation branches
+- The alert rebuild ("Apply these settings to existing alerts") now runs as the durable `reapply` job and
+  is refused while scoring or another rebuild is queued or running, also across a separate worker process.
+- The Command Center no longer says drift monitoring is missing; it points to Models → Monitoring.
+
 ## 2026-10-21
 
 ### Day-wise validation in the training CLI

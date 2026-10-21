@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { Bell, CornerDownLeft, Keyboard, ListTree, Search, Server, ShieldAlert, SunMoon } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { NAV } from "@/components/layout/nav";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -55,6 +56,7 @@ export interface CommandPaletteProps {
  */
 export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandPaletteProps) {
   const { can, activeOrg } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toggleTheme = useToggleTheme();
   const [search, setSearch] = useState("");
@@ -89,10 +91,10 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
 
   const incidents = useQuery({ queryKey: [org, "incidents"], queryFn: () => api<{ items: Incident[] }>("/incidents"), enabled: open && q.kind === "text" });
 
-  const pages = NAV.flatMap((g) => g.items).filter((p) => (!p.requires || can(p.requires)) && (q.kind === "empty" || matches(`go to ${p.label}`, search)));
+  const pages = NAV.flatMap((g) => g.items).filter((p) => (!p.requires || can(p.requires)) && (q.kind === "empty" || matches(`go to ${p.label} ${t("palette.goTo", { page: t(`nav.pages.${p.key}`) })}`, search)));
   const actions = [
-    { key: "theme", label: "Toggle light / dark theme", icon: <SunMoon className="h-4 w-4" />, run: close(toggleTheme), hint: undefined },
-    { key: "help", label: "Keyboard shortcuts", icon: <Keyboard className="h-4 w-4" />, run: close(onShowShortcuts), hint: "?" },
+    { key: "theme", label: t("palette.toggleTheme"), icon: <SunMoon className="h-4 w-4" />, run: close(toggleTheme), hint: undefined },
+    { key: "help", label: t("palette.shortcuts"), icon: <Keyboard className="h-4 w-4" />, run: close(onShowShortcuts), hint: "?" },
   ].filter((a) => q.kind === "empty" || matches(a.label, search));
   const incidentHits = (q.kind === "text" ? (incidents.data?.items ?? []) : []).filter((i) => matches(`${i.title} ${i.id} ${i.sourceIp ?? ""}`, search)).slice(0, 8);
   const assetHits = (assets.data?.items ?? []).filter((a) => !(q.kind === "ip" && a.ip === q.value));
@@ -116,19 +118,19 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
           <DialogPrimitive.Description id="palette-help" className="sr-only">
             Type to find a page, an address, or an alert, incident or flow by its id. Use the arrow keys and Enter.
           </DialogPrimitive.Description>
-          <Command label="Search pages, addresses, alerts and incidents" loop shouldFilter={false}>
+          <Command label={t("palette.label")} loop shouldFilter={false}>
             <div className="flex items-center gap-2 border-b border-subtle px-3">
               <Search aria-hidden className="h-4 w-4 shrink-0 text-fg-3" />
               <Command.Input
                 value={search}
                 onValueChange={setSearch}
-                placeholder="Search pages, an IP address, or an alert / incident id"
+                placeholder={t("palette.placeholder")}
                 className="h-12 w-full bg-transparent text-body text-fg-1 outline-none placeholder:text-fg-3"
               />
             </div>
             <Command.List className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
               <Command.Empty className="px-3 py-6 text-center text-small text-fg-3">
-                {idSearching ? "" : nothingElse ? "No alert, incident or flow with that id in this organisation." : "No match. Try a page name, an IP address or an id."}
+                {idSearching ? "" : nothingElse ? t("palette.noId") : t("palette.noMatch")}
               </Command.Empty>
               {idSearching && (
                 <p role="status" className="px-3 py-2 text-small text-fg-3">
@@ -137,21 +139,21 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
               )}
 
               {q.kind === "ip" && (
-                <Command.Group heading="Address" className={group}>
+                <Command.Group heading={t("palette.address")} className={group}>
                   <Command.Item value={`open asset ${q.value}`} onSelect={() => go(`/assets/${encodeURIComponent(q.value)}`)} className={item}>
-                    <Row icon={<Server className="h-4 w-4" />} hint="Asset">
+                    <Row icon={<Server className="h-4 w-4" />} hint={t("palette.asset")}>
                       Open asset <span className="font-mono text-fg-1">{q.value}</span>
                     </Row>
                   </Command.Item>
                   <Command.Item value={`flows from ${q.value}`} onSelect={() => go(`/flows?sourceIp=${encodeURIComponent(q.value)}`)} className={item}>
-                    <Row icon={<ListTree className="h-4 w-4" />} hint="Flows">
+                    <Row icon={<ListTree className="h-4 w-4" />} hint={t("palette.flows")}>
                       Flows from <span className="font-mono text-fg-1">{q.value}</span>
                     </Row>
                   </Command.Item>
                 </Command.Group>
               )}
               {assetHits.length > 0 && (
-                <Command.Group heading="Assets" className={group}>
+                <Command.Group heading={t("palette.assets")} className={group}>
                   {assetHits.map((a) => (
                     <Command.Item key={a.ip} value={`asset ${a.ip}`} onSelect={() => go(`/assets/${encodeURIComponent(a.ip)}`)} className={item}>
                       <Row icon={<Server className="h-4 w-4" />} hint={a.scope}>
@@ -162,24 +164,24 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                 </Command.Group>
               )}
               {q.kind === "id" && (incident.isSuccess || alert.isSuccess || flow.isSuccess) && (
-                <Command.Group heading="Matches that id" className={group}>
+                <Command.Group heading={t("palette.matchesId")} className={group}>
                   {incident.isSuccess && (
                     <Command.Item value={`incident ${id}`} onSelect={() => go(`/incidents/${id}`)} className={item}>
-                      <Row icon={<ShieldAlert className="h-4 w-4" />} hint="Incident">
+                      <Row icon={<ShieldAlert className="h-4 w-4" />} hint={t("palette.incident")}>
                         {incident.data.title}
                       </Row>
                     </Command.Item>
                   )}
                   {alert.isSuccess && (
                     <Command.Item value={`alert ${id}`} onSelect={() => go(`/alerts?alert=${id}&status=all`)} className={item}>
-                      <Row icon={<Bell className="h-4 w-4" />} hint="Alert">
+                      <Row icon={<Bell className="h-4 w-4" />} hint={t("palette.alert")}>
                         {alert.data.type} alert from {alert.data.srcIp ?? "several sources"}
                       </Row>
                     </Command.Item>
                   )}
                   {flow.isSuccess && (
                     <Command.Item value={`flow ${id}`} onSelect={() => go(`/flows?flow=${id}`)} className={item}>
-                      <Row icon={<ListTree className="h-4 w-4" />} hint="Flow">
+                      <Row icon={<ListTree className="h-4 w-4" />} hint={t("palette.flow")}>
                         {flow.data.sourceIp} → {flow.data.destinationIp}:{flow.data.destinationPort}
                       </Row>
                     </Command.Item>
@@ -187,7 +189,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                 </Command.Group>
               )}
               {incidentHits.length > 0 && (
-                <Command.Group heading="Incidents" className={group}>
+                <Command.Group heading={t("palette.incidents")} className={group}>
                   {incidentHits.map((i) => (
                     <Command.Item key={i.id} value={`incident ${i.id}`} onSelect={() => go(`/incidents/${i.id}`)} className={item}>
                       <Row icon={<ShieldAlert className="h-4 w-4" />} hint={`${i.severity} · ${i.status}`}>
@@ -199,18 +201,18 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
               )}
 
               {pages.length > 0 && (
-                <Command.Group heading="Pages" className={group}>
+                <Command.Group heading={t("palette.pages")} className={group}>
                   {pages.map((p) => (
                     <Command.Item key={p.to} value={`go to ${p.label}`} onSelect={() => go(p.to)} className={item}>
-                      <Row icon={<p.icon className="h-4 w-4" />} hint={p.go ? `G then ${p.go.toUpperCase()}` : undefined}>
-                        {p.label}
+                      <Row icon={<p.icon className="h-4 w-4" />} hint={p.go ? t("palette.gThen", { key: p.go.toUpperCase() }) : undefined}>
+                        {t(`nav.pages.${p.key}`)}
                       </Row>
                     </Command.Item>
                   ))}
                 </Command.Group>
               )}
               {actions.length > 0 && (
-                <Command.Group heading="Actions" className={group}>
+                <Command.Group heading={t("palette.actions")} className={group}>
                   {actions.map((a) => (
                     <Command.Item key={a.key} value={a.label} onSelect={a.run} className={item}>
                       <Row icon={a.icon} hint={a.hint}>

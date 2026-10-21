@@ -1,6 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { Download, LogOut } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { changePasswordBodySchema } from "@sentinel/shared";
 import { NeutralBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
@@ -21,11 +22,12 @@ import { MfaSettings } from "./MfaSettings";
 function useSavePrefs() {
   const { setUser } = useAuth();
   const toast = useToast();
+  const { t } = useTranslation();
   return async (body: { name?: string; preferences?: Partial<UserPreferences> }) => {
     try {
       const res = await api<{ user: User }>("/me", { method: "PATCH", body });
       setUser(res.user);
-      toast.success("Saved");
+      toast.success(t("common.saved"));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -34,6 +36,7 @@ function useSavePrefs() {
 
 function Profile() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const save = useSavePrefs();
   const [name, setName] = useState(user?.name ?? "");
   const [busy, setBusy] = useState(false);
@@ -42,7 +45,7 @@ function Profile() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Profile" />
+        <CardHeader title={t("settings.profile")} />
         <CardBody>
           <form
             className="flex max-w-md flex-col gap-4"
@@ -53,51 +56,57 @@ function Profile() {
               setBusy(false);
             }}
           >
-            <Field label="Name">{({ id }) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
-            <Field label="Email" hint="Email changes are not supported yet.">
+            <Field label={t("settings.name")}>{({ id }) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+            <Field label={t("settings.email")} hint={t("settings.emailHint")}>
               {({ id, describedBy }) => <Input id={id} value={user.email} readOnly aria-describedby={describedBy} />}
             </Field>
             <Button type="submit" className="self-start" loading={busy} disabled={!name.trim() || name.trim() === user.name}>
-              Save profile
+              {t("settings.saveProfile")}
             </Button>
           </form>
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title="Preferences" subtitle="Saved to your account and applied on every device." />
+        <CardHeader title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} />
         <CardBody className="grid max-w-2xl gap-4 sm:grid-cols-2">
-          <Field label="Theme">
+          <Field label={t("settings.theme")}>
             {({ id }) => (
               <Select id={id} value={p.theme} onChange={(e) => void save({ preferences: { theme: e.target.value as UserPreferences["theme"] } })}>
-                <option value="light">Light (default)</option>
-                <option value="dark">Dark</option>
-                <option value="system">Match system</option>
+                <option value="light">{t("settings.themeLight")}</option>
+                <option value="dark">{t("settings.themeDark")}</option>
+                <option value="system">{t("settings.themeSystem")}</option>
               </Select>
             )}
           </Field>
-          <Field label="Accent">
+          <Field label={t("settings.accent")}>
             {({ id }) => (
               <Select id={id} value={p.accentColor} onChange={(e) => void save({ preferences: { accentColor: e.target.value as UserPreferences["accentColor"] } })}>
-                <option value="pine">Pine (default)</option>
-                <option value="ocean">Ocean</option>
-                <option value="plum">Plum</option>
+                <option value="pine">{t("settings.accentPine")}</option>
+                <option value="ocean">{t("settings.accentOcean")}</option>
+                <option value="plum">{t("settings.accentPlum")}</option>
               </Select>
             )}
           </Field>
-          <Field label="Density">
+          <Field label={t("settings.density")}>
             {({ id }) => (
               <Select id={id} value={p.density} onChange={(e) => void save({ preferences: { density: e.target.value as UserPreferences["density"] } })}>
-                <option value="comfortable">Comfortable</option>
-                <option value="compact">Compact</option>
+                <option value="comfortable">{t("settings.densityComfortable")}</option>
+                <option value="compact">{t("settings.densityCompact")}</option>
               </Select>
             )}
           </Field>
-          <Field label="Language" hint="Interface translation (FR, HI) is not built yet; this only records your preference.">
+          <Field label={t("language.label")} hint={t("language.coverage")}>
             {({ id, describedBy }) => (
               <Select id={id} aria-describedby={describedBy} value={p.language} onChange={(e) => void save({ preferences: { language: e.target.value as UserPreferences["language"] } })}>
-                <option value="en">English</option>
-                <option value="fr">Français</option>
-                <option value="hi">हिन्दी</option>
+                <option value="en" lang="en">
+                  {t("language.en")}
+                </option>
+                <option value="fr" lang="fr">
+                  {t("language.fr")}
+                </option>
+                <option value="hi" lang="hi">
+                  {t("language.hi")}
+                </option>
               </Select>
             )}
           </Field>
@@ -109,6 +118,7 @@ function Profile() {
 
 function Security() {
   const toast = useToast();
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { logout } = useAuth();
   const sessions = useSessions();
@@ -139,7 +149,7 @@ function Security() {
     try {
       await api(`/auth/sessions/${id}`, { method: "DELETE" });
       await qc.invalidateQueries({ queryKey: ["me", "sessions"] });
-      toast.success("Session signed out");
+      toast.success(t("settings.sessionSignedOut"));
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -148,27 +158,27 @@ function Security() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Change password" subtitle="Other devices are signed out; this one stays signed in." />
+        <CardHeader title={t("settings.changePassword")} subtitle={t("settings.changePasswordSubtitle")} />
         <CardBody>
           <form className="flex max-w-md flex-col gap-4" onSubmit={submit} noValidate>
-            <Field label="Current password" error={errors.currentPassword}>
+            <Field label={t("settings.currentPassword")} error={errors.currentPassword}>
               {({ id, describedBy, invalid }) => <Input id={id} type="password" autoComplete="current-password" value={form.currentPassword} onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))} aria-describedby={describedBy} aria-invalid={invalid} />}
             </Field>
-            <Field label="New password" error={errors.newPassword} hint="At least 12 characters.">
+            <Field label={t("settings.newPassword")} error={errors.newPassword} hint={t("settings.atLeast12")}>
               {({ id, describedBy, invalid }) => <Input id={id} type="password" autoComplete="new-password" value={form.newPassword} onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))} aria-describedby={describedBy} aria-invalid={invalid} />}
             </Field>
             <Button type="submit" className="self-start" loading={busy}>
-              Change password
+              {t("settings.changePassword")}
             </Button>
           </form>
         </CardBody>
       </Card>
       <Card>
         <CardHeader
-          title="Active sessions"
+          title={t("settings.activeSessions")}
           actions={
             <Button size="sm" variant="danger" onClick={() => setConfirmAll(true)}>
-              <LogOut aria-hidden className="h-4 w-4" /> Sign out everywhere
+              <LogOut aria-hidden className="h-4 w-4" /> {t("settings.signOutEverywhere")}
             </Button>
           }
         />
@@ -182,15 +192,15 @@ function Security() {
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-small text-fg-1" title={s.userAgent}>
-                    {s.userAgent || "Unknown device"} {s.current && <NeutralBadge className="ml-1 bg-sev-ok/15 text-sevfg-ok">this device</NeutralBadge>}
+                    {s.userAgent || t("settings.unknownDevice")} {s.current && <NeutralBadge className="ml-1 bg-sev-ok/15 text-sevfg-ok">{t("settings.thisDevice")}</NeutralBadge>}
                   </p>
                   <p className="text-caption text-fg-3" title={utcTitle(s.lastSeenAt)}>
-                    <span className="font-mono">{s.ip || "unknown IP"}</span> · last active {formatWhen(s.lastSeenAt)}
+                    <span className="font-mono">{s.ip || t("settings.unknownIp")}</span> · {t("settings.lastActive", { when: formatWhen(s.lastSeenAt) })}
                   </p>
                 </div>
                 {!s.current && (
                   <Button size="sm" variant="ghost" onClick={() => void revoke(s.id)}>
-                    Sign out
+                    {t("settings.signOut")}
                   </Button>
                 )}
               </li>
@@ -202,9 +212,9 @@ function Security() {
       <ConfirmDialog
         open={confirmAll}
         onOpenChange={setConfirmAll}
-        title="Sign out everywhere?"
-        consequence="Every session, including this one, ends immediately. You will need to sign in again."
-        confirmLabel="Sign out everywhere"
+        title={t("settings.signOutAllTitle")}
+        consequence={t("settings.signOutAllConsequence")}
+        confirmLabel={t("settings.signOutEverywhere")}
         onConfirm={async () => {
           try {
             await api("/auth/logout-all", { method: "POST" });
@@ -219,6 +229,7 @@ function Security() {
 
 function Data() {
   const toast = useToast();
+  const { t } = useTranslation();
   const { logout, orgs } = useAuth();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -238,28 +249,28 @@ function Data() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Export your data" subtitle="Your account, memberships and sessions as JSON (no password hash, no tokens)." />
+        <CardHeader title={t("settings.exportTitle")} subtitle={t("settings.exportSubtitle")} />
         <CardBody>
           <Button onClick={() => void exportData()}>
-            <Download aria-hidden className="h-4 w-4" /> Download JSON
+            <Download aria-hidden className="h-4 w-4" /> {t("settings.downloadJson")}
           </Button>
         </CardBody>
       </Card>
       <Card className="border-sev-critical/40">
-        <CardHeader title="Delete account" subtitle="Organisations where you are the only member are deleted with all their data. If you are the only Owner of an organisation with other members, transfer ownership first." />
+        <CardHeader title={t("settings.deleteTitle")} subtitle={t("settings.deleteSubtitle")} />
         <CardBody>
           <Button variant="danger" onClick={() => setConfirm(true)}>
-            Delete my account
+            {t("settings.deleteButton")}
           </Button>
         </CardBody>
       </Card>
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="Delete your account?"
-        consequence={`This cannot be undone. You are a member of ${orgs.length} organisation(s); those where you are the only member are deleted with their flows, datasets, incidents and audit log.`}
-        confirmLabel="Delete my account"
-        typedConfirmation="delete my account"
+        title={t("settings.deleteConfirmTitle")}
+        consequence={t("settings.deleteConsequence", { count: orgs.length })}
+        confirmLabel={t("settings.deleteButton")}
+        typedConfirmation={t("settings.deleteTyped")}
         loading={busy}
         onConfirm={async () => {
           setBusy(true);
@@ -278,32 +289,36 @@ function Data() {
 }
 
 const TABS = [
-  { value: "profile", label: "Profile & preferences", el: <Profile /> },
-  { value: "security", label: "Security", el: <Security /> },
-  { value: "data", label: "Data & privacy", el: <Data /> },
-  { value: "detection", label: "Detection", el: <DetectionTuning /> },
-];
+  { value: "profile", el: <Profile /> },
+  { value: "security", el: <Security /> },
+  { value: "data", el: <Data /> },
+  { value: "detection", el: <DetectionTuning /> },
+] as const;
 
 export function SettingsPage() {
   const { activeOrg } = useAuth();
+  const { t } = useTranslation();
   return (
     <>
-      <PageHeader title="Settings" description={activeOrg ? <>Organisation slug: <span className="font-mono">{activeOrg.slug}</span> (used by the CSV import CLI)</> : undefined} />
+      <PageHeader
+        title={t("settings.title")}
+        description={activeOrg ? <Trans i18nKey="settings.slug" values={{ slug: activeOrg.slug }} components={{ mono: <span className="font-mono" /> }} /> : undefined}
+      />
       <Tabs.Root defaultValue="profile">
-        <Tabs.List aria-label="Settings sections" className="mb-6 flex gap-1 overflow-x-auto border-b border-subtle">
-          {TABS.map((t) => (
+        <Tabs.List aria-label={t("settings.sections")} className="mb-6 flex gap-1 overflow-x-auto border-b border-subtle">
+          {TABS.map((tab) => (
             <Tabs.Trigger
-              key={t.value}
-              value={t.value}
+              key={tab.value}
+              value={tab.value}
               className={cn("-mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-small text-fg-2 hover:text-fg-1 data-[state=active]:border-[color:rgb(var(--accent))] data-[state=active]:text-fg-1")}
             >
-              {t.label}
+              {t(`settings.tabs.${tab.value}`)}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        {TABS.map((t) => (
-          <Tabs.Content key={t.value} value={t.value}>
-            {t.el}
+        {TABS.map((tab) => (
+          <Tabs.Content key={tab.value} value={tab.value}>
+            {tab.el}
           </Tabs.Content>
         ))}
       </Tabs.Root>

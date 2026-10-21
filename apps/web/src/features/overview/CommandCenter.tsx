@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, FlaskConical, Upload } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { BarList, FlowVolumeChart } from "@/components/charts/Charts";
 import { NeutralBadge, SourceKindBadge } from "@/components/ui/Badges";
@@ -10,18 +11,19 @@ import { useAlertSummary, useBreakdown, useDatasets, useModels, useOverview, use
 import type { SourceKind } from "@sentinel/shared";
 
 function Onboarding({ hasDataset, hasActiveModel }: { hasDataset: boolean; hasActiveModel: boolean }) {
+  const { t } = useTranslation();
   const steps = [
-    { done: hasDataset, title: "Bring in network flows", body: "Import a CICIDS2017-style CSV. Live collection arrives with the collector (roadmap Phase 2).", to: "/datasets", cta: "Import a dataset", icon: Upload },
-    { done: hasActiveModel, title: "Activate a detection model", body: "Pick a trained model and read its model card first. Flows stay unscored until you do.", to: "/models", cta: "Open models", icon: FlaskConical },
+    { done: hasDataset, title: t("overview.stepFlowsTitle"), body: t("overview.stepFlowsBody"), to: "/datasets", cta: t("overview.stepFlowsCta"), icon: Upload },
+    { done: hasActiveModel, title: t("overview.stepModelTitle"), body: t("overview.stepModelBody"), to: "/models", cta: t("overview.stepModelCta"), icon: FlaskConical },
   ];
   return (
     <Card>
-      <CardHeader title="Get started" subtitle="This organisation has no flows yet, so there is nothing to summarise." />
+      <CardHeader title={t("overview.getStarted")} subtitle={t("overview.getStartedSubtitle")} />
       <CardBody>
         <ol className="space-y-4">
           {steps.map((s, i) => (
             <li key={s.title} className="flex flex-wrap items-start gap-4 rounded-md border border-subtle p-4">
-              {s.done ? <CheckCircle2 aria-label="Done" className="h-5 w-5 text-sevfg-ok" /> : <Circle aria-label="To do" className="h-5 w-5 text-fg-3" />}
+              {s.done ? <CheckCircle2 aria-label={t("common.done")} className="h-5 w-5 text-sevfg-ok" /> : <Circle aria-label={t("common.toDo")} className="h-5 w-5 text-fg-3" />}
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-fg-1">
                   {i + 1}. {s.title}
@@ -42,41 +44,55 @@ function Onboarding({ hasDataset, hasActiveModel }: { hasDataset: boolean; hasAc
 }
 
 function ModelHealth() {
+  const { t } = useTranslation();
   const models = useModels();
   const scoring = useScoringStatus();
   const schema = scoring.data?.schemas.find((s) => s.schema === "cicids2017-v1");
   const active = models.data?.items.find((m) => m.active);
   return (
     <Card>
-      <CardHeader title="Model health" subtitle="Benchmark schema cicids2017-v1" actions={<Link to="/models" className="text-small text-accent-fg hover:underline">Models</Link>} />
+      <CardHeader
+        title={t("overview.modelHealth")}
+        subtitle={t("overview.modelHealthSubtitle")}
+        actions={
+          <Link to="/models" className="text-small text-accent-fg hover:underline">
+            {t("overview.models")}
+          </Link>
+        }
+      />
       <CardBody className="space-y-3 text-small">
         {models.isLoading ? (
           <Skeleton className="h-16" />
         ) : models.isError ? (
-          <p className="text-fg-2">ML service unreachable: models cannot be listed. Flows keep being stored unscored.</p>
+          <p className="text-fg-2">{t("overview.mlUnreachable")}</p>
         ) : active ? (
           <>
             <p className="font-mono text-fg-1">{active.version}</p>
             <p className="text-fg-2">
-              Test macro-F1 <span className="tnum font-medium text-fg-1">{formatScore(active.metrics.macroF1)}</span> on {active.metrics.testRows} rows ({active.kind})
+              <Trans
+                i18nKey="overview.testMacroF1"
+                values={{ f1: formatScore(active.metrics.macroF1), rows: active.metrics.testRows, kind: active.kind }}
+                components={{ strong: <span className="tnum font-medium text-fg-1" /> }}
+              />
             </p>
-            {active.versionWarnings.length > 0 && <p className="text-sevfg-high">Library version mismatch: {active.versionWarnings.join("; ")}</p>}
+            {active.versionWarnings.length > 0 && <p className="text-sevfg-high">{t("overview.versionMismatch", { warnings: active.versionWarnings.join("; ") })}</p>}
           </>
         ) : (
-          <p className="text-fg-2">No active model. Flows are stored but not scored.</p>
+          <p className="text-fg-2">{t("overview.noActiveModel")}</p>
         )}
         {schema && (
           <p className="text-fg-3">
-            {schema.pending} pending · {schema.scored} scored · {schema.error} errors {scoring.data?.running && "· scoring in progress"}
+            {t("overview.scoringCounts", { pending: schema.pending, scored: schema.scored, errors: schema.error })} {scoring.data?.running && t("overview.scoringRunning")}
           </p>
         )}
-        <p className="text-caption text-fg-3">No drift monitoring yet (roadmap 1.9).</p>
+        <p className="text-caption text-fg-3">{t("overview.driftHint")}</p>
       </CardBody>
     </Card>
   );
 }
 
 export function CommandCenter() {
+  const { t } = useTranslation();
   const overview = useOverview();
   const datasets = useDatasets();
   const models = useModels();
@@ -94,11 +110,11 @@ export function CommandCenter() {
   return (
     <>
       <PageHeader
-        title="Command Center"
+        title={t("overview.title")}
         description={
           o?.dataRange ? (
             <span className="flex flex-wrap items-center gap-2">
-              Data from {formatDateTime(o.dataRange.from)} to {formatDateTime(o.dataRange.to)}
+              {t("overview.dataRange", { from: formatDateTime(o.dataRange.from), to: formatDateTime(o.dataRange.to) })}
               {Object.entries(o.bySourceKind).map(([k, n]) => (
                 <span key={k} className="inline-flex items-center gap-1">
                   <SourceKindBadge kind={k as SourceKind} />
@@ -107,7 +123,7 @@ export function CommandCenter() {
               ))}
             </span>
           ) : (
-            "What the detection models found in your network flows."
+            t("overview.description")
           )
         }
       />
@@ -116,16 +132,20 @@ export function CommandCenter() {
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-            <KpiCard label="Flows" value={o?.totalFlows} loading={!o} to="/flows" />
-            <KpiCard label="Active alerts" value={activeAlerts} loading={alertSummary.isLoading} hint={alertSummary.data?.activeBySeverity.critical ? `${alertSummary.data.activeBySeverity.critical} critical` : undefined} to="/alerts" tone="alert" />
-            <KpiCard label="Malicious verdicts" value={o?.maliciousFlows} loading={!o} to="/flows?verdict=malicious" />
-            <KpiCard label="Malicious sources" value={o?.maliciousSourceIps} loading={!o} to="/flows?verdict=malicious" />
-            <KpiCard label="Needs review" value={o?.needsReviewFlows} loading={!o} hint="Below confidence threshold" to="/flows?needsReview=true" />
-            <KpiCard label="Not scored" value={o?.pendingFlows} loading={!o} to="/flows?verdict=unscored" />
+            <KpiCard label={t("overview.kpiFlows")} value={o?.totalFlows} loading={!o} to="/flows" />
+            <KpiCard
+              label={t("overview.kpiActiveAlerts")}
+              value={activeAlerts}
+              loading={alertSummary.isLoading}
+              hint={alertSummary.data?.activeBySeverity.critical ? t("overview.kpiCritical", { count: alertSummary.data.activeBySeverity.critical }) : undefined} to="/alerts" tone="alert" />
+            <KpiCard label={t("overview.kpiMalicious")} value={o?.maliciousFlows} loading={!o} to="/flows?verdict=malicious" />
+            <KpiCard label={t("overview.kpiSources")} value={o?.maliciousSourceIps} loading={!o} to="/flows?verdict=malicious" />
+            <KpiCard label={t("overview.kpiNeedsReview")} value={o?.needsReviewFlows} loading={!o} hint={t("overview.kpiNeedsReviewHint")} to="/flows?needsReview=true" />
+            <KpiCard label={t("overview.kpiNotScored")} value={o?.pendingFlows} loading={!o} to="/flows?verdict=unscored" />
           </div>
           <div className="grid gap-6 lg:grid-cols-12">
             <Card className="lg:col-span-8">
-              <CardHeader title="Flow volume" subtitle={series.data ? `Per ${series.data.interval}, UTC · malicious = model verdict` : "UTC"} />
+              <CardHeader title={t("overview.flowVolume")} subtitle={series.data ? t("overview.flowVolumeSubtitle", { interval: t(`overview.interval.${series.data.interval}`) }) : "UTC"} />
               <CardBody>
                 {series.isLoading ? (
                   <Skeleton className="h-64" />
@@ -134,7 +154,7 @@ export function CommandCenter() {
                 ) : series.data && series.data.buckets.length ? (
                   <FlowVolumeChart data={series.data} />
                 ) : (
-                  <EmptyState title="No flows in this range" />
+                  <EmptyState title={t("overview.noFlowsInRange")} />
                 )}
               </CardBody>
             </Card>
@@ -144,19 +164,19 @@ export function CommandCenter() {
           </div>
           <div className="grid gap-6 lg:grid-cols-3">
             <Card>
-              <CardHeader title="Verdict mix" subtitle="Model verdicts on scored flows" />
+              <CardHeader title={t("overview.verdictMix")} subtitle={t("overview.verdictMixSubtitle")} />
               <CardBody>
                 {verdicts.isLoading ? (
                   <Skeleton className="h-40" />
                 ) : verdicts.isError ? (
                   <ErrorState error={verdicts.error} />
                 ) : (
-                  <BarList items={(verdicts.data?.items ?? []).map((v) => ({ key: v.key ?? "unknown", count: v.count, href: `/flows?verdict=${v.key}` }))} emptyText="No scored flows yet." />
+                  <BarList items={(verdicts.data?.items ?? []).map((v) => ({ key: v.key ?? "unknown", count: v.count, href: `/flows?verdict=${v.key}` }))} emptyText={t("overview.noScored")} />
                 )}
               </CardBody>
             </Card>
             <Card>
-              <CardHeader title="Top attacking sources" subtitle="By malicious verdicts" />
+              <CardHeader title={t("overview.topSources")} subtitle={t("overview.byMalicious")} />
               <CardBody>
                 {attackers.isLoading ? (
                   <Skeleton className="h-40" />
@@ -166,13 +186,13 @@ export function CommandCenter() {
                   <BarList
                     items={(attackers.data?.items ?? []).map((a) => ({ key: a.key, count: a.count, href: `/flows?verdict=malicious&sourceIp=${encodeURIComponent(a.key)}` }))}
                     render={(k) => <EntityChip value={k} />}
-                    emptyText="No malicious verdicts."
+                    emptyText={t("overview.noMalicious")}
                   />
                 )}
               </CardBody>
             </Card>
             <Card>
-              <CardHeader title="Top targeted ports" subtitle="By malicious verdicts" />
+              <CardHeader title={t("overview.topPorts")} subtitle={t("overview.byMalicious")} />
               <CardBody>
                 {ports.isLoading ? (
                   <Skeleton className="h-40" />
@@ -182,14 +202,14 @@ export function CommandCenter() {
                   <BarList
                     items={(ports.data?.items ?? []).map((p) => ({ key: p.key, count: p.count, href: `/flows?verdict=malicious&port=${p.key}` }))}
                     render={(k) => <span className="font-mono">{k}</span>}
-                    emptyText="No malicious verdicts."
+                    emptyText={t("overview.noMalicious")}
                   />
                 )}
               </CardBody>
             </Card>
           </div>
           <p className="text-caption text-fg-3">
-            <NeutralBadge>Note</NeutralBadge> Every number here comes from model verdicts. Dataset labels are only used on the Models page to evaluate those verdicts.
+            <NeutralBadge>{t("common.note")}</NeutralBadge> {t("overview.footnote")}
           </p>
         </div>
       )}

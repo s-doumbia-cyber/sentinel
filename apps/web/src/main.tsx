@@ -1,6 +1,7 @@
 import "@fontsource-variable/inter";
 import "@fontsource/jetbrains-mono/400.css";
 import "./index.css";
+import "./i18n";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

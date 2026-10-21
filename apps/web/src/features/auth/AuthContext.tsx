@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { can, type Action, type Role } from "@sentinel/shared";
 import { api, onSessionExpired, refreshSession, setAccessToken, setActiveOrg } from "@/lib/api";
 import type { AuthResponse, MeResponse, OrgMembership, User, UserPreferences } from "@/lib/types";
+import { setUiLanguage } from "@/i18n";
 
 type Status = "loading" | "authenticated" | "anonymous";
 
@@ -30,9 +31,10 @@ interface AuthValue {
 const AuthContext = createContext<AuthValue | null>(null);
 const ORG_KEY = "sentinel.org";
 
-/** Applies theme, accent and density, and caches them for the pre-paint script. */
-export function applyPreferences(p: Pick<UserPreferences, "theme" | "accentColor" | "density">) {
+/** Applies theme, accent, density and language, and caches them for the pre-paint script. */
+export function applyPreferences(p: Pick<UserPreferences, "theme" | "accentColor" | "density"> & Partial<Pick<UserPreferences, "language">>) {
   const root = document.documentElement;
+  if (p.language) setUiLanguage(p.language);
   const theme = p.theme === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : p.theme;
   root.setAttribute("data-theme", theme);
   root.setAttribute("data-accent", p.accentColor);

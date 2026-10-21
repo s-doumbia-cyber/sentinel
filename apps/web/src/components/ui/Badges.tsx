@@ -1,4 +1,5 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, Clock, Info, ShieldAlert, Sparkles, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { MITRE_BY_CLASS, type AttackClass, type Severity, type SourceKind } from "@sentinel/shared";
 import { cn } from "@/lib/format";
 import type { Flow } from "@/lib/types";
@@ -15,28 +16,30 @@ const SEVERITY: Record<Severity, { icon: LucideIcon; label: string; cls: string 
 
 /** Severity is never colour alone: icon + label + colour (§2.4). */
 export function SeverityBadge({ severity }: { severity: Severity }) {
+  const { t } = useTranslation();
   const s = SEVERITY[severity];
   const Icon = s.icon;
   return (
     <span className={cn(base, "uppercase tracking-[0.04em]", s.cls)}>
       <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {s.label}
+      {t(`severity.${severity}`)}
     </span>
   );
 }
 
-const KIND: Record<SourceKind, { label: string; cls: string; title: string }> = {
-  LIVE: { label: "LIVE", cls: "bg-kind-live/15 text-sevfg-ok", title: "Captured live by a collector" },
-  REPLAY: { label: "REPLAY", cls: "bg-kind-replay/15 text-sevfg-low", title: "Replayed data, not live traffic" },
-  IMPORTED: { label: "IMPORTED", cls: "bg-kind-imported/15 text-sevfg-info", title: "Imported from a file" },
-  DEMO: { label: "DEMO", cls: "border border-dashed border-kind-demo/70 text-sevfg-medium", title: "Demonstration data" },
+const KIND: Record<SourceKind, { label: string; cls: string }> = {
+  LIVE: { label: "LIVE", cls: "bg-kind-live/15 text-sevfg-ok" },
+  REPLAY: { label: "REPLAY", cls: "bg-kind-replay/15 text-sevfg-low" },
+  IMPORTED: { label: "IMPORTED", cls: "bg-kind-imported/15 text-sevfg-info" },
+  DEMO: { label: "DEMO", cls: "border border-dashed border-kind-demo/70 text-sevfg-medium" },
 };
 
 /** Provenance is shown wherever data is shown (CLAUDE.md §3.1). */
 export function SourceKindBadge({ kind }: { kind: SourceKind }) {
+  const { t } = useTranslation();
   const k = KIND[kind];
   return (
-    <span className={cn(base, "tracking-[0.04em]", k.cls)} title={k.title}>
+    <span className={cn(base, "tracking-[0.04em]", k.cls)} title={t(`sourceKind.${kind}`)}>
       {kind === "LIVE" && <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-kind-live" />}
       {k.label}
     </span>
