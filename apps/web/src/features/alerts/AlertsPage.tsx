@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, Skeleton, SkeletonRows } from "@/components/ui/
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/features/auth/AuthContext";
 import { describeRule } from "@/features/rules/describe";
+import { useHotkeys } from "@/features/shortcuts/useHotkeys";
 import { api, errorMessage } from "@/lib/api";
 import { cn, formatDateTime, formatExact, formatWhen, utcTitle } from "@/lib/format";
 import { useAlert, useAlerts, useOrgMutation, type AlertFilters } from "@/lib/queries";
@@ -86,6 +87,21 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
   const top = a?.explanationFlow?.scored;
   const navigate = useNavigate();
   const createIncident = useOrgMutation((alertIds: string[]) => api<Incident>("/incidents/from-alerts", { method: "POST", body: { alertIds } }), ["alerts", "alert", "incidents"]);
+  const openIncident = () => {
+    if (!a) return;
+    if (a.incident) navigate(`/incidents/${a.incident.id}`);
+    else if (can("incidents:write") && !createIncident.isPending)
+      createIncident.mutate([a.id], { onSuccess: (inc) => navigate(`/incidents/${inc.id}`), onError: (e) => toast.error(errorMessage(e)) });
+  };
+  // E / F / I act on the open alert through the same API calls as the buttons below (and the API checks the role).
+  useHotkeys(
+    {
+      e: () => writable && a && a.status !== "acknowledged" && !patch.isPending && update({ status: "acknowledged" }),
+      f: () => writable && a && !patch.isPending && update(verdictChange(a, "false_positive")),
+      i: openIncident,
+    },
+    Boolean(a),
+  );
 
   return (
     <Drawer open={Boolean(id)} onOpenChange={(o) => !o && onClose()} title={a ? `${a.type} alert` : "Alert"} subtitle={a ? `Last seen ${formatWhen(a.lastSeen)}` : undefined}>
@@ -112,6 +128,9 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
           <section>
             <h3 className="mb-3 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">Triage</h3>
             <div className="flex flex-wrap items-end gap-3">
+              <Button size="sm" aria-keyshortcuts="e" disabled={!writable || patch.isPending || a.status === "acknowledged"} onClick={() => update({ status: "acknowledged" })}>
+                Acknowledge
+              </Button>
               <label className="text-caption text-fg-3">
                 Status
                 <Select className="mt-1 w-44" disabled={!writable || patch.isPending} value={a.status} onChange={(e) => update({ status: e.target.value as AlertStatus })}>
@@ -129,6 +148,7 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                     size="sm"
                     variant={a.verdict === v ? "primary" : "secondary"}
                     aria-pressed={a.verdict === v}
+                    aria-keyshortcuts={v === "false_positive" ? "f" : undefined}
                     disabled={!writable || patch.isPending}
                     onClick={() => update(verdictChange(a, v))}
                   >
@@ -137,6 +157,9 @@ function AlertDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                 ))}
               </div>
             </div>
+            <p className="mt-2 text-caption text-fg-3">
+              Shortcuts: <kbd className="font-mono">E</kbd> acknowledge · <kbd className="font-mono">F</kbd> false positive · <kbd className="font-mono">I</kbd> incident · <kbd className="font-mono">?</kbd> all shortcuts
+            </p>
             {a.verdict && (
               <p className="mt-2 text-caption text-fg-3">
                 Marked {VERDICT_LABEL[a.verdict].toLowerCase()} by {a.verdictBy?.name ?? "a former member"} {a.verdictAt ? formatWhen(a.verdictAt) : ""}. Verdicts feed future retraining (roadmap 1.9).

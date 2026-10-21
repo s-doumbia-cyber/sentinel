@@ -1,78 +1,11 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import {
-  Bell,
-  Building2,
-  ChevronsUpDown,
-  Database,
-  Fingerprint,
-  Beaker,
-  Server,
-  FlaskConical,
-  LayoutDashboard,
-  ListChecks,
-  ListTree,
-  LogOut,
-  MoreHorizontal,
-  ScrollText,
-  Settings,
-  ShieldAlert,
-  ShieldCheck,
-  SunMoon,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Building2, ChevronsUpDown, LogOut, MoreHorizontal, Search, Settings, ShieldCheck, SunMoon } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import type { Action } from "@sentinel/shared";
-import { applyPreferences, useAuth } from "@/features/auth/AuthContext";
-import { api } from "@/lib/api";
+import { useAuth } from "@/features/auth/AuthContext";
+import { ShortcutsProvider, useShortcuts } from "@/features/shortcuts/ShortcutsProvider";
+import { useToggleTheme } from "@/features/shortcuts/useToggleTheme";
 import { cn } from "@/lib/format";
-import type { User } from "@/lib/types";
-import { useToast } from "@/components/ui/Toast";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  /** Hidden (cosmetically) for roles without this permission; the API enforces it. */
-  requires?: Action;
-}
-
-/** Only pages backed by a working API appear here; nothing links to a placeholder. */
-export const NAV: { group: string; items: NavItem[] }[] = [
-  {
-    group: "Monitor",
-    items: [
-      { to: "/", label: "Command Center", icon: LayoutDashboard },
-      { to: "/alerts", label: "Alerts", icon: Bell },
-      { to: "/flows", label: "Flows", icon: ListTree },
-    ],
-  },
-  {
-    group: "Investigate",
-    items: [
-      { to: "/incidents", label: "Incidents", icon: ShieldAlert },
-      { to: "/assets", label: "Assets", icon: Server },
-    ],
-  },
-  {
-    group: "Detect",
-    items: [
-      { to: "/rules", label: "Rules", icon: ListChecks },
-      { to: "/models", label: "Models", icon: FlaskConical },
-      { to: "/validation", label: "Validation", icon: Beaker },
-      { to: "/datasets", label: "Datasets", icon: Database },
-    ],
-  },
-  {
-    group: "Manage",
-    items: [
-      { to: "/identity", label: "Identity sources", icon: Fingerprint, requires: "identity:read" },
-      { to: "/team", label: "Team", icon: Users },
-      { to: "/audit", label: "Audit log", icon: ScrollText, requires: "audit:read" },
-      { to: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+import { NAV, type NavItem } from "./nav";
 
 const MOBILE = ["/", "/alerts", "/incidents", "/flows"];
 
@@ -80,6 +13,23 @@ function navClass({ isActive }: { isActive: boolean }) {
   return cn(
     "relative flex h-9 items-center gap-3 rounded-md px-3 text-body transition-colors duration-fast",
     isActive ? "bg-accent-soft font-medium text-fg-1 before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent" : "text-fg-2 hover:bg-surface-3 hover:text-fg-1",
+  );
+}
+
+/** Opens the command palette; Ctrl+K does the same from anywhere. */
+function SearchButton() {
+  const { openPalette } = useShortcuts();
+  return (
+    <button
+      type="button"
+      onClick={openPalette}
+      aria-keyshortcuts="Control+K Meta+K"
+      className="flex h-9 items-center gap-2 rounded-md border bg-surface-1 px-3 text-small text-fg-2 hover:border-strong hover:text-fg-1"
+    >
+      <Search aria-hidden className="h-4 w-4" />
+      <span className="hidden sm:inline">Search</span>
+      <kbd className="hidden rounded-sm border bg-surface-2 px-1.5 font-mono text-caption text-fg-3 md:inline">Ctrl K</kbd>
+    </button>
   );
 }
 
@@ -120,9 +70,9 @@ function OrgSwitcher() {
 }
 
 function UserMenu() {
-  const { user, logout, setUser } = useAuth();
-  const toast = useToast();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const toggleTheme = useToggleTheme();
   if (!user) return null;
   const initials = user.name
     .split(/\s+/)
@@ -130,16 +80,6 @@ function UserMenu() {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const toggleTheme = async () => {
-    const theme = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-    applyPreferences({ ...user.preferences, theme });
-    try {
-      const res = await api<{ user: User }>("/me", { method: "PATCH", body: { preferences: { theme } } });
-      setUser(res.user);
-    } catch {
-      toast.error("Theme changed for this session but could not be saved");
-    }
-  };
   return (
     <Menu.Root>
       <Menu.Trigger className="flex h-9 w-9 items-center justify-center rounded-full border bg-surface-2 text-caption font-semibold text-fg-1 hover:border-strong" aria-label="Account menu">
@@ -152,7 +92,7 @@ function UserMenu() {
             <p className="truncate text-caption text-fg-3">{user.email}</p>
           </div>
           <Menu.Separator className="my-1 h-px bg-surface-3" />
-          <Menu.Item onSelect={() => void toggleTheme()} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
+          <Menu.Item onSelect={toggleTheme} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
             <SunMoon aria-hidden className="h-4 w-4" /> Toggle theme
           </Menu.Item>
           <Menu.Item onSelect={() => navigate("/settings")} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-small text-fg-2 outline-none data-[highlighted]:bg-surface-3 data-[highlighted]:text-fg-1">
@@ -191,7 +131,7 @@ function MobileMore({ items }: { items: NavItem[] }) {
   );
 }
 
-export function AppShell() {
+function Shell() {
   const { can } = useAuth();
   const { pathname } = useLocation();
   const visible = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.requires || can(i.requires)) })).filter((g) => g.items.length);
@@ -232,7 +172,10 @@ export function AppShell() {
             <ShieldCheck aria-hidden className="h-5 w-5 text-accent-fg md:hidden" strokeWidth={1.75} />
             <OrgSwitcher />
           </div>
-          <UserMenu />
+          <div className="flex items-center gap-2">
+            <SearchButton />
+            <UserMenu />
+          </div>
         </header>
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto pb-20 md:pb-0">
           {/* Keyed by route so each page enters with a short fade; query-string changes do not re-animate. */}
@@ -256,5 +199,13 @@ export function AppShell() {
         </nav>
       </div>
     </div>
+  );
+}
+
+export function AppShell() {
+  return (
+    <ShortcutsProvider>
+      <Shell />
+    </ShortcutsProvider>
   );
 }
