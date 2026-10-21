@@ -36,6 +36,8 @@ from .holdout import evaluate_holdout, parse_holdout_config, select_holdout_grou
 from .labels import CRITICAL_CLASSES
 from .metrics import evaluate, min_recall
 from .model_card import render_model_card
+from .novelty import BENIGN_LABEL, NOVELTY_FILE, DEFAULT_QUANTILE, evaluate_novelty, fit_novelty
+from .reference import REFERENCE_FILE, build_reference
 from .schemas import load_feature_schema, schemas_dir
 
 log = logging.getLogger("sentinel_ml.train")
@@ -94,6 +96,26 @@ def _group_evaluation(X, y, groups, algorithm, class_weight, classes, seed) -> d
     model_classes = [str(c) for c in pipe.classes_]
     m = evaluate(pipe, X.iloc[te], y.iloc[te], model_classes)
     return {"status": "ok", **note, "macroF1": m["macroF1"], "testRows": m["testRows"], "perClass": m["perClass"]}
+
+
+def _train_novelty(cfg: dict | None, X_trval, y_trval, X_test, y_test, seed: int, out: Path) -> dict:
+    """Optional IsolationForest on benign training rows; its failure never blocks the classifier."""
+    if not cfg or not cfg.get("enabled"):
+        return {"status": "not_configured"}
+    quantile = float(cfg.get("quantile", DEFAULT_QUANTILE))
+    try:
+        model = fit_novelty(X_trval[(y_trval == BENIGN_LABEL).to_numpy()], seed, quantile)
+    except ValueError as exc:
+        log.warning("Novelty detector not trained: %s", exc)
+        return {"status": "not_possible", "reason": str(exc)}
+    joblib.dump(model, out / NOVELTY_FILE)
+    return {
+        "status": "ok",
+        "quantile": quantile,
+        "threshold": round(model.threshold, 6),
+        "trainedOnRows": model.rows,
+        **evaluate_novelty(model, X_test, y_test),
+    }
 
 
 def train(config_path: Path, csv_override: list[str] | None = None, output_override: Path | None = None) -> Path:
@@ -191,11 +213,18 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
     env = lib_versions()
     (out / "env.json").write_text(json.dumps(env, indent=2), encoding="utf-8")
 
+    # Baseline for the drift job: the distribution of the rows the model was fitted on.
+    reference = build_reference(X_trval, y_trval, schema_id)
+    (out / REFERENCE_FILE).write_text(json.dumps(reference, separators=(",", ":")), encoding="utf-8")
+
+    novelty = _train_novelty(cfg.get("novelty"), X_trval, y_trval, X_test, y_test, seed, out)
+
     metrics = {
         "test": test_metrics,
         "selection": {"candidates": candidates, "chosen": best, "criticalMinRecall": critical_min, "warning": selection_warning},
         "groupAware": group_eval,
         "heldOut": held_eval,
+        "novelty": novelty,
         "split": {"train": int(len(y_train)), "validation": int(len(y_val)), "test": int(len(y_test)), "seed": seed},
     }
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -219,6 +248,8 @@ def train(config_path: Path, csv_override: list[str] | None = None, output_overr
             "description": cfg.get("description", ""),
         },
         "libVersions": env,
+        "reference": {"rows": reference["rows"], "bins": reference["bins"]},
+        "novelty": None if novelty["status"] != "ok" else {k: novelty[k] for k in ("quantile", "threshold", "trainedOnRows", "benignFalsePositiveRate", "perClass")},
         "sha256": _sha256(out / "model.joblib"),
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

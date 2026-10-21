@@ -16,6 +16,8 @@ import pandas as pd
 import sklearn
 
 from .explain import Explainer
+from .novelty import NOVELTY_FILE
+from .reference import REFERENCE_FILE
 
 log = logging.getLogger("sentinel_ml.registry")
 
@@ -52,6 +54,8 @@ class ModelEntry:
     blocking: bool = False
     _bundle: dict | None = None
     _explainer: Explainer | None = None
+    _novelty: object | None = None
+    _novelty_loaded: bool = False
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
@@ -72,6 +76,20 @@ class ModelEntry:
             if self._bundle is None:
                 self._bundle = joblib.load(self.path / "model.joblib")
             return self._bundle
+
+    def novelty(self):
+        """The optional novelty detector of this model, or None when it was not trained."""
+        with self._lock:
+            if not self._novelty_loaded:
+                path = self.path / NOVELTY_FILE
+                self._novelty = joblib.load(path) if path.is_file() else None
+                self._novelty_loaded = True
+            return self._novelty
+
+    def reference(self) -> dict | None:
+        """The training-time reference histogram used by the drift job (None for older models)."""
+        path = self.path / REFERENCE_FILE
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
     def explainer(self) -> Explainer:
         with self._lock:

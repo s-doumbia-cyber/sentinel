@@ -11,6 +11,14 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### Drift reference and novelty detector (ML service)
+- Every trained model now stores `reference.json`, a compact 10-bin histogram per feature of the rows
+  it was fitted on (`GET /models/{version}/reference`); the drift check compares recent flows to it.
+- Optional IsolationForest on benign training rows (`novelty.enabled`), threshold at a benign-score
+  quantile, saved as `novelty.joblib`. `/predict` adds `novelty` next to the verdict; the model card
+  reports the benign false-positive rate and the share of each attack class above the threshold.
+  It is never mapped to an attack class. pytest coverage.
+
 ## 2026-10-20
 
 ### Foundation (Phase 0)

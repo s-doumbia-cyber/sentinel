@@ -101,6 +101,31 @@ def render_model_card(meta: dict, metrics: dict, cfg: dict) -> str:
         lines.append(f"- Not possible: {h.get('reason')}.")
     for w in h.get("warnings", []):
         lines.append(f"- **Warning:** {w}")
+    nv = metrics.get("novelty", {"status": "not_configured"})
+    lines += ["", "### Novelty detector (unusual behaviour)"]
+    if nv["status"] == "ok":
+        lines += [
+            f"- IsolationForest fitted on {nv['trainedOnRows']} benign training rows; a flow scoring at or above {_fmt(nv['threshold'])}"
+            f" (the {nv['quantile']:.0%} quantile of benign training scores) is statistically unusual compared with that traffic.",
+            f"- Measured on the held-out test split: {_fmt(nv['benignFalsePositiveRate'])} of {nv['benignRows']} benign rows were above the threshold.",
+            "- It is not a diagnosis and is never mapped to an attack class. Known attacks are also unusual compared with benign traffic,"
+            " so Sentinel reports \"unusual behaviour\" only when a flow is above the threshold and the classifier did not recognise it with confidence.",
+        ]
+        if nv["perClass"]:
+            lines += ["", "| Class | Test rows | Share above the novelty threshold |", "|---|---|---|"]
+            lines += [f"| {c['label']} | {c['support']} | {_fmt(c['flaggedShare'])} |" for c in nv["perClass"]]
+    elif nv["status"] == "not_possible":
+        lines.append(f"- Not trained: {nv.get('reason')}.")
+    else:
+        lines.append("- Not configured (`novelty.enabled` in the training config).")
+    ref = meta.get("reference")
+    if ref:
+        lines += [
+            "",
+            "### Drift reference",
+            f"- `reference.json` stores a {ref['bins']}-bin histogram per feature from the {ref['rows']} rows the model was fitted on."
+            " The Models page compares recent scored flows with it (population stability index); it measures change, not accuracy.",
+        ]
     lines += [
         "",
         "## 5. Cross-dataset results",

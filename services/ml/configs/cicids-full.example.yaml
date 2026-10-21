@@ -27,4 +27,9 @@ models: [logistic_regression, random_forest, hist_gradient_boosting]
 class_weights: [none, balanced]
 selection:
   critical_min_recall: 0.5
+# Optional novelty detector: an IsolationForest fitted on benign training rows. Its score is
+# separate evidence, never an attack class (see the model card).
+novelty:
+  enabled: true
+  quantile: 0.99
 output_dir: ../artifacts

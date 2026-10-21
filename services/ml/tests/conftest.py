@@ -46,6 +46,7 @@ def trained_model(tmp_path_factory) -> Path:
         "split": {"test_size": 0.2, "val_size": 0.2, "seed": 1},
         "models": ["logistic_regression", "random_forest", "hist_gradient_boosting"],
         "class_weights": ["none"],
+        "novelty": {"enabled": True, "quantile": 0.99},
         "output_dir": "artifacts",
     }
     (root / "cfg.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")

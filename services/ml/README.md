@@ -50,6 +50,14 @@ services/ml/.venv/bin/python -m sentinel_ml.train --config services/ml/configs/c
 - Reported on the untouched test set: macro-F1, weighted-F1, MCC, per-class precision / recall /
   F1 / PR-AUC / support (classes under 30 test rows flagged unstable), confusion matrix,
   calibration (ECE + reliability bins), latency per 1,000 flows.
+- `reference.json`: a compact per-feature histogram (10 bins) of the rows the model was fitted on,
+  the baseline for the drift check (`GET /models/{version}/reference`). Models trained before it
+  existed have none and must be retrained to be drift-checked.
+- Optional novelty detector (`novelty.enabled`): an IsolationForest on the benign training rows,
+  saved as `novelty.joblib`, with a threshold at a quantile (default 0.99) of the benign training
+  scores. `/predict` then returns `novelty: {score, threshold, aboveThreshold}` per flow next to
+  the class verdict. The model card reports the benign false-positive rate on the test split and
+  the share of each attack class above the threshold. It is never mapped to an attack class.
 - Unknown labels are dropped and counted; non-finite values are imputed with the training median.
 - Nothing is activated automatically.
 
@@ -64,6 +72,7 @@ comparisons, time-based holdout for lab data, cross-dataset evaluation.
 | GET | `/models` | registry summary, version warnings, group-aware holdout |
 | GET | `/models/{version}` | plus the model card |
 | POST | `/predict` | `{schema, modelVersion, flows:[{id, features}], explain}`; missing or unknown features → 422; schema mismatch → 409; version mismatch → 409 |
+| GET | `/models/{version}/reference` | training-time histogram for drift checks; 404 for models trained before it existed |
 | POST | `/reload` | rescan artefacts (also happens automatically) |
 
 Explanations (top 5 signed contributions for the predicted class) are computed only for
