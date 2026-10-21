@@ -85,7 +85,7 @@ test("analyst goes from an alert to a reported incident, and every step is recor
   });
 
   await test.step("the report states facts, hypotheses, identity and what Sentinel did not do", async () => {
-    await page.getByRole("link", { name: "Report" }).click();
+    await page.getByRole("link", { name: "Report", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/incidents/${ws.incidentId}/report`));
     const report = page.getByRole("article");
     await expect(report.getByRole("heading", { level: 1 })).toHaveText("Discovery → Credential access from 10.0.0.66");

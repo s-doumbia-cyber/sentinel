@@ -16,6 +16,10 @@ test("investigation pages fit a 375 px screen without horizontal scrolling", asy
     ["/identity", "Identity sources"],
     ["/validation", "Validation"],
     ["/alerts", "Alerts"],
+    ["/reports", "Reports"],
+    ["/incidents?view=board", "Incidents"],
+    [`/incidents/${ws.incidentId}?tab=graph`, "Discovery → Credential access from 10.0.0.66"],
+    ["/assets/10.0.0.66", "10.0.0.66"],
   ];
   for (const [url, heading] of pages) {
     await page.goto(url);
@@ -36,7 +40,7 @@ test("every page stays reachable from the mobile bottom bar", async ({ page }) =
   const bar = page.getByRole("navigation", { name: "Main (mobile)" });
   await expect(bar).toBeVisible();
   await bar.getByRole("button", { name: "More pages" }).click();
-  for (const name of ["Assets", "Rules", "Models", "Validation", "Datasets", "Identity sources", "Team", "Audit log", "Settings"]) {
+  for (const name of ["Assets", "Rules", "Models", "Validation", "Datasets", "Identity sources", "Reports", "Team", "Audit log", "Settings"]) {
     await expect(page.getByRole("menuitem", { name })).toBeVisible();
   }
   await page.getByRole("menuitem", { name: "Assets" }).click();

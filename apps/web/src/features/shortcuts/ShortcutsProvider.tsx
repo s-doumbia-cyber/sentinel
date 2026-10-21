@@ -39,7 +39,7 @@ function Keys({ row }: { row: ShortcutRow }) {
 function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Keyboard shortcuts" description="Single-letter shortcuts are off while you type in a field, and G-then-letter navigation is off while a panel or dialog is open.">
-      <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-1">
+      <div role="region" aria-label="Keyboard shortcuts list" tabIndex={0} className="max-h-[60vh] space-y-5 overflow-y-auto pr-1">
         {SHORTCUT_GROUPS.map((g) => (
           <section key={g.title} aria-label={g.title}>
             <h3 className="mb-2 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">{g.title}</h3>

@@ -60,6 +60,8 @@ function stylesheet(): StylesheetJson {
         "target-arrow-shape": "triangle",
         "target-arrow-color": token("text-3"),
         "arrow-scale": 0.8,
+        // Edges are not interactive; without this an arrowhead over a node swallowed the tap.
+        events: "no",
       },
     },
     { selector: "edge[?alerted]", style: { "line-style": "dashed", "line-opacity": 0.9 } },
@@ -67,6 +69,10 @@ function stylesheet(): StylesheetJson {
     { selector: "edge.hover", style: { "line-opacity": 1 } },
   ];
 }
+
+/** Largest zoom after fitting: two nodes would otherwise fill the whole canvas. */
+const MAX_FIT_ZOOM = 1.25;
+const MAX_ZOOM = 4;
 
 function layoutFor(count: number, animate: boolean): LayoutOptions {
   // Concentric rings (seeds in the middle, busiest peers closest) are deterministic and linear in size,
@@ -78,10 +84,20 @@ function layoutFor(count: number, animate: boolean): LayoutOptions {
     fit: true,
     padding: 24,
     avoidOverlap: true,
-    minNodeSpacing: 14,
+    minNodeSpacing: 40,
     concentric: (n: cytoscape.NodeSingular) => (n.data("seed") ? 1000 : n.degree(false)),
     levelWidth: () => 3,
   } as LayoutOptions;
+}
+
+function fit(cy: Core, animate: boolean) {
+  // The layout fits the graph to the canvas but cannot exceed maxZoom; lowering it only while fitting keeps
+  // two nodes from filling the canvas. (Setting the zoom afterwards left cytoscape's hit-testing with stale
+  // positions, so taps landed on the background: found by the e2e run.)
+  cy.maxZoom(MAX_FIT_ZOOM);
+  const layout = cy.layout(layoutFor(cy.nodes().length, animate));
+  layout.one("layoutstop", () => cy.maxZoom(MAX_ZOOM));
+  layout.run();
 }
 
 export interface GraphCanvasProps {
@@ -108,9 +124,8 @@ export default function GraphCanvas({ data, onOpenNode }: GraphCanvasProps) {
       container: host.current,
       elements: [...elements.nodes, ...elements.edges],
       style: stylesheet(),
-      layout: layoutFor(elements.nodes.length, false),
       minZoom: 0.05,
-      maxZoom: 4,
+      maxZoom: MAX_ZOOM,
       wheelSensitivity: 0.25,
       boxSelectionEnabled: false,
       // Keeps pan and zoom smooth at 500 nodes: edges and labels are redrawn from a texture while moving.
@@ -119,6 +134,7 @@ export default function GraphCanvas({ data, onOpenNode }: GraphCanvasProps) {
       pixelRatio: many ? 1 : "auto",
     });
     cyRef.current = cy;
+    fit(cy, false);
     if (import.meta.env.DEV) (host.current as HTMLDivElement & { __cy?: Core }).__cy = cy;
     cy.on("tap", "node", (e) => open.current(e.target.id()));
     cy.on("mouseover", "node", (e) => {
@@ -150,7 +166,7 @@ export default function GraphCanvas({ data, onOpenNode }: GraphCanvasProps) {
   const reset = () => {
     const cy = cyRef.current;
     if (!cy) return;
-    cy.layout(layoutFor(cy.nodes().length, !reducedMotion())).run();
+    fit(cy, !reducedMotion());
   };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const cy = cyRef.current;

@@ -17,7 +17,7 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { INCIDENT_STATUSES } from "@sentinel/shared";
 import { NeutralBadge, SeverityBadge } from "@/components/ui/Badges";
 import { cn } from "@/lib/format";
@@ -25,37 +25,42 @@ import type { Incident, IncidentStatus } from "@/lib/types";
 
 const isStatus = (v: unknown): v is IncidentStatus => (INCIDENT_STATUSES as readonly unknown[]).includes(v);
 
-/** Pointer first (where the cursor is), then the moved rectangle, which is what a keyboard drag has. */
-const collision: CollisionDetection = (args) => {
-  const within = pointerWithin(args);
-  return within.length ? within : rectIntersection(args);
-};
+/** Which column a keyboard drag is currently over. Keyboard drags are decided by this, not by geometry. */
+type KeyboardTarget = { current: IncidentStatus | null };
 
 /**
- * Left and right hop to the neighbouring column, centred in it. Plain pixel steps (the default) would take
- * dozens of key presses to cross a column; up and down are left alone because order inside a column is by recency.
+ * A mouse or touch drag is dropped where the pointer is. A keyboard drag has no pointer, and going by where its
+ * rectangle sits proved unreliable (a mouse left resting over the board, found by the e2e run, made it pick the
+ * wrong column), so it is dropped on the column the arrow keys last chose.
  */
-export const columnKeyboardCoordinates: KeyboardCoordinateGetter = (event, { context: { active, droppableRects, droppableContainers, collisionRect }, currentCoordinates }) => {
-  const dir = event.code === "ArrowRight" ? 1 : event.code === "ArrowLeft" ? -1 : 0;
-  if (!active || !collisionRect) return undefined;
-  if (!dir) {
-    if (event.code === "ArrowUp" || event.code === "ArrowDown") event.preventDefault();
-    return undefined;
-  }
-  event.preventDefault();
-  const columns = droppableContainers
-    .getEnabled()
-    .flatMap((c) => {
-      const rect = droppableRects.get(c.id);
-      return rect ? [{ id: c.id, rect }] : [];
-    })
-    .sort((a, b) => a.rect.left - b.rect.left);
-  const centre = collisionRect.left + collisionRect.width / 2;
-  const here = columns.findIndex((c) => centre >= c.rect.left && centre <= c.rect.left + c.rect.width);
-  const next = columns[(here === -1 ? 0 : here) + dir];
-  if (!next) return undefined;
-  return { x: next.rect.left + (next.rect.width - collisionRect.width) / 2, y: currentCoordinates.y };
-};
+const detectCollision =
+  (keyboard: boolean, target: KeyboardTarget): CollisionDetection =>
+  (args) => {
+    if (keyboard) {
+      const column = args.droppableContainers.find((c) => c.id === target.current);
+      return column ? [{ id: column.id }] : [];
+    }
+    const within = pointerWithin(args);
+    return within.length ? within : rectIntersection(args);
+  };
+
+/**
+ * Arrow keys hop to the previous or next status, in board order, and centre the card in that column. Plain pixel
+ * steps (the default) would take dozens of presses to cross a column. The chosen column is recorded in `target`,
+ * which is what the drop uses; the returned coordinates only move the card on screen.
+ */
+export const columnKeyboardCoordinates =
+  (target: KeyboardTarget): KeyboardCoordinateGetter =>
+  (event, { context: { active, droppableRects, collisionRect } }) => {
+    const dir = event.code === "ArrowRight" || event.code === "ArrowDown" ? 1 : event.code === "ArrowLeft" || event.code === "ArrowUp" ? -1 : 0;
+    if (!active || !collisionRect || !dir) return undefined;
+    event.preventDefault();
+    const next = INCIDENT_STATUSES[INCIDENT_STATUSES.indexOf(target.current ?? "Open") + dir];
+    const rect = next ? droppableRects.get(next) : undefined;
+    if (!next || !rect) return undefined;
+    target.current = next;
+    return { x: rect.left + (rect.width - collisionRect.width) / 2, y: rect.top + 48 };
+  };
 
 function CardFace({ incident, onOpen }: { incident: Incident; onOpen: (id: string) => void }) {
   return (
@@ -100,7 +105,7 @@ function Column({ status, items, onOpen, canMove }: { status: IncidentStatus; it
     <section
       ref={setNodeRef}
       aria-label={`${status} (${items.length})`}
-      className={cn("flex min-w-[220px] flex-col rounded-lg border bg-bg-0 p-2 transition-colors duration-fast", isOver ? "border-accent bg-accent-soft" : "border-subtle")}
+      className={cn("flex min-w-0 flex-col rounded-lg border bg-bg-0 p-2 transition-colors duration-fast", isOver ? "border-accent bg-accent-soft" : "border-subtle")}
     >
       <h2 className="flex items-center justify-between px-2 py-1.5 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">
         {status} <span className="tnum">{items.length}</span>
@@ -127,27 +132,34 @@ export interface IncidentBoardProps {
 
 /**
  * Kanban board on dnd-kit (not Framer Motion, which swallows native drag events: lesson 2). Move a card with
- * the mouse or a long press, or with the keyboard: focus its grip, Space to pick up, Left / Right to change
+ * the mouse or a long press, or with the keyboard: focus its grip, Space to pick up, arrow keys to change
  * column, Space to drop, Esc to cancel. The page decides what a move does (optimistic update, rollback).
  */
 export function IncidentBoard({ items, canMove, onOpen, onMove }: IncidentBoardProps) {
   const [active, setActive] = useState<Incident | null>(null);
+  const keyboardDrag = useRef(false);
+  const keyboardTarget = useRef<IncidentStatus | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: columnKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: columnKeyboardCoordinates(keyboardTarget) }),
   );
   const byId = (id: unknown) => items.find((i) => i.id === id) ?? null;
   const titleOf = (id: unknown) => byId(id)?.title ?? "incident";
 
   const announcements: Announcements = {
-    onDragStart: ({ active: a }) => `Picked up ${titleOf(a.id)}. It is in ${byId(a.id)?.status ?? "its column"}. Use the left and right arrow keys to choose a column, Space to drop, Escape to cancel.`,
+    onDragStart: ({ active: a }) => `Picked up ${titleOf(a.id)}. It is in ${byId(a.id)?.status ?? "its column"}. Use the arrow keys to choose a column, Space to drop, Escape to cancel.`,
     onDragOver: ({ active: a, over }) => (over ? `${titleOf(a.id)} is over ${String(over.id)}.` : `${titleOf(a.id)} is not over a column.`),
     onDragEnd: ({ active: a, over }) => (over && isStatus(over.id) && byId(a.id)?.status !== over.id ? `${titleOf(a.id)} dropped in ${over.id}.` : `${titleOf(a.id)} dropped where it was.`),
     onDragCancel: ({ active: a }) => `Move cancelled. ${titleOf(a.id)} did not move.`,
   };
 
-  const onDragStart = (e: DragStartEvent) => setActive(byId(e.active.id));
+  const onDragStart = (e: DragStartEvent) => {
+    keyboardDrag.current = e.activatorEvent instanceof KeyboardEvent;
+    const incident = byId(e.active.id);
+    keyboardTarget.current = incident?.status ?? null;
+    setActive(incident);
+  };
   const onDragEnd = (e: DragEndEvent) => {
     setActive(null);
     const incident = byId(e.active.id);
@@ -158,14 +170,14 @@ export function IncidentBoard({ items, canMove, onOpen, onMove }: IncidentBoardP
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={collision}
+      collisionDetection={(args) => detectCollision(keyboardDrag.current, keyboardTarget)(args)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setActive(null)}
-      accessibility={{ announcements, screenReaderInstructions: { draggable: "To pick up an incident, press Space. Use the left and right arrow keys to move it between columns, Space to drop it, Escape to cancel." } }}
+      accessibility={{ announcements, screenReaderInstructions: { draggable: "To pick up an incident, press Space. Use the arrow keys to move it between columns, Space to drop it, Escape to cancel." } }}
     >
       {!canMove && <p className="mb-3 text-small text-fg-3">Moving incidents needs the Analyst role. You can open any incident.</p>}
-      <div role="region" aria-label="Incident board" tabIndex={0} className="grid gap-4 overflow-x-auto md:grid-cols-5">
+      <div role="region" aria-label="Incident board" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {INCIDENT_STATUSES.map((status) => (
           <Column key={status} status={status} items={items.filter((i) => i.status === status)} onOpen={onOpen} canMove={canMove} />
         ))}

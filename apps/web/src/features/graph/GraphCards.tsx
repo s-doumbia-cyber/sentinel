@@ -18,9 +18,9 @@ function useGraph(path: string, query: Record<string, string | number | undefine
 
 function DepthSelect({ value, onChange }: { value: 1 | 2; onChange: (d: 1 | 2) => void }) {
   return (
-    <label className="text-caption text-fg-3">
+    <label className="min-w-0 text-caption text-fg-3">
       Reach
-      <Select className="mt-1 w-44" value={value} onChange={(e) => onChange(e.target.value === "2" ? 2 : 1)}>
+      <Select className="mt-1 w-full sm:w-56" value={value} onChange={(e) => onChange(e.target.value === "2" ? 2 : 1)}>
         <option value="1">Direct peers</option>
         <option value="2">Peers of the busiest peers</option>
       </Select>
@@ -49,23 +49,21 @@ export function EntityGraphCard({ ip, lastSeen }: { ip: string; lastSeen: string
       <CardHeader
         title="Connections"
         subtitle="Who this address exchanged flows with, from stored flows. Line width is the flow count; alert markers come from this organisation’s alerts."
-        actions={
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="text-caption text-fg-3">
-              Time range
-              <Select className="mt-1 w-56" value={win} onChange={(e) => set("graphRange", e.target.value === "all" ? null : e.target.value)}>
-                {(Object.keys(WINDOWS) as WindowKey[]).map((k) => (
-                  <option key={k} value={k}>
-                    {WINDOWS[k].label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <DepthSelect value={depth} onChange={(d) => set("graphDepth", d === 1 ? null : "2")} />
-          </div>
-        }
       />
-      <CardBody>
+      <CardBody className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-0 text-caption text-fg-3">
+            Time range
+            <Select className="mt-1 w-full sm:w-56" value={win} onChange={(e) => set("graphRange", e.target.value === "all" ? null : e.target.value)}>
+              {(Object.keys(WINDOWS) as WindowKey[]).map((k) => (
+                <option key={k} value={k}>
+                  {WINDOWS[k].label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <DepthSelect value={depth} onChange={(d) => set("graphDepth", d === 1 ? null : "2")} />
+        </div>
         <GraphView data={graph.data} isLoading={graph.isLoading} error={graph.error} onRetry={() => void graph.refetch()} />
       </CardBody>
     </Card>
@@ -82,19 +80,17 @@ export function IncidentGraphCard({ id }: { id: string }) {
       <CardHeader
         title="Entities and connections"
         subtitle="The addresses on this incident and the traffic between them and their peers, over the incident’s activity window."
-        actions={
-          <DepthSelect
-            value={depth}
-            onChange={(d) => {
-              const next = new URLSearchParams(params);
-              if (d === 1) next.delete("graphDepth");
-              else next.set("graphDepth", "2");
-              setParams(next, { replace: true });
-            }}
-          />
-        }
       />
-      <CardBody>
+      <CardBody className="space-y-4">
+        <DepthSelect
+          value={depth}
+          onChange={(d) => {
+            const next = new URLSearchParams(params);
+            if (d === 1) next.delete("graphDepth");
+            else next.set("graphDepth", "2");
+            setParams(next, { replace: true });
+          }}
+        />
         <GraphView data={graph.data} isLoading={graph.isLoading} error={graph.error} onRetry={() => void graph.refetch()} />
       </CardBody>
     </Card>
