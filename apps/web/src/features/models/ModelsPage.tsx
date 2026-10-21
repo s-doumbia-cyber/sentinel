@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Play, Power } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { NeutralBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/Card";
@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, Skeleton, SkeletonRows } from "@/components/ui/
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/features/auth/AuthContext";
 import { ApiError, api, errorMessage } from "@/lib/api";
-import { cn, formatDateTime, formatExact, formatScore } from "@/lib/format";
+import { cn, formatDateTime, formatExact, formatPercent, formatScore } from "@/lib/format";
 import { useEvaluation, useModel, useModels, useOrgMutation, useScoringStatus } from "@/lib/queries";
 import type { ClassMetric, Evaluation, ModelDetail } from "@/lib/types";
 import { MonitoringPanel } from "./MonitoringPanel";
@@ -252,6 +252,43 @@ function ModelView({ version }: { version: string }) {
                 </>
               ) : (
                 <p className="mt-1 text-small text-fg-2">Not possible: {m.groupAware.reason}.</p>
+              )}
+            </div>
+          )}
+          {m.heldOut && (
+            <div className="rounded-md border border-subtle p-4">
+              <h3 className="text-h3 font-semibold">Held-out {m.heldOut.by === "file" ? "capture days" : (m.heldOut.by ?? "groups")}</h3>
+              {m.heldOut.status === "ok" ? (
+                <>
+                  <p className="mt-1 text-small text-fg-2">
+                    Trained without <span className="font-mono text-fg-1">{(m.heldOut.groups ?? []).join(", ")}</span>. Macro-F1 <span className="tnum font-semibold text-fg-1">{formatScore(m.heldOut.macroF1)}</span> on {formatExact(m.heldOut.testRows)} held-out rows.
+                  </p>
+                  {(m.heldOut.warnings ?? []).map((w) => (
+                    <p key={w} role="note" className="mt-2 flex gap-2 rounded-md border border-sev-medium/40 bg-sev-medium/10 px-3 py-2 text-small text-sevfg-medium">
+                      <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+                      {w}
+                    </p>
+                  ))}
+                  {m.heldOut.perClass && <div className="mt-3"><PerClassTable rows={m.heldOut.perClass} caption="Per-class results on the held-out groups" /></div>}
+                </>
+              ) : (
+                <p className="mt-1 text-small text-fg-2">Not possible: {m.heldOut.reason}.</p>
+              )}
+            </div>
+          )}
+          {m.novelty && (
+            <div className="rounded-md border border-subtle p-4">
+              <h3 className="text-h3 font-semibold">Novelty detector (unusual behaviour)</h3>
+              <p className="mt-1 text-small text-fg-2">
+                An IsolationForest fitted on {formatExact(m.novelty.trainedOnRows)} benign training rows. Flows at or above {m.novelty.threshold.toFixed(3)} (the {Math.round(m.novelty.quantile * 100)} % quantile of benign training scores) that the classifier does not recognise with
+                confidence are shown as “unusual behaviour”, never as an attack class.{" "}
+                {m.novelty.benignFalsePositiveRate !== null && <>On the held-out test split, {formatPercent(m.novelty.benignFalsePositiveRate)} of benign rows were above the threshold. </>}
+                <Link className="text-accent-fg underline underline-offset-2" to="/flows?unusual=true">See flagged flows</Link>.
+              </p>
+              {m.novelty.perClass.length > 0 && (
+                <p className="mt-2 text-caption text-fg-3">
+                  Share of each attack class above the threshold (test rows): {m.novelty.perClass.map((c) => `${c.label} ${formatPercent(c.flaggedShare)} (${formatExact(c.support)})`).join(" · ")}
+                </p>
               )}
             </div>
           )}

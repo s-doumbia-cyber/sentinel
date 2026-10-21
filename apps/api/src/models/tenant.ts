@@ -27,6 +27,10 @@ const scoredSchema = new Schema(
     severity: { type: String, enum: SEVERITIES, required: true },
     needsReview: { type: Boolean, required: true },
     topFeatures: [{ _id: false, name: String, contribution: Number, value: Number }],
+    /** Distance from benign training traffic (IsolationForest), when the model has a novelty detector. Never a class. */
+    novelty: { type: new Schema({ score: Number, threshold: Number, aboveThreshold: Boolean }, { _id: false }), default: undefined },
+    /** Above the novelty threshold AND not recognised as a known attack with confidence: "unusual behaviour". */
+    unusualBehaviour: { type: Boolean, default: false },
     scoredAt: { type: Date, required: true },
   },
   { _id: false },

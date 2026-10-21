@@ -72,6 +72,10 @@ export interface Flow {
     confidence: number;
     severity: Severity;
     needsReview: boolean;
+    /** Present when the model has a novelty detector: distance from benign training traffic, never a class. */
+    novelty?: { score: number; threshold: number; aboveThreshold: boolean } | null;
+    /** Far from benign training traffic and not recognised as a known attack with confidence. */
+    unusualBehaviour?: boolean;
     scoredAt: string;
     probabilities: Record<string, number> | null;
     topFeatures: TopFeature[];
@@ -180,6 +184,29 @@ export interface ModelSummary {
     perClass?: ClassMetric[];
     classesMissingFromTest?: string[];
   };
+  /** Whole capture days (files) or column values kept out of training; the model is tested on them. */
+  heldOut?: {
+    status: "ok" | "not_possible";
+    reason?: string;
+    by?: string;
+    groups?: string[];
+    macroF1?: number | null;
+    testRows?: number;
+    rows?: number;
+    perClass?: ClassMetric[];
+    perGroup?: { group: string; rows: number; classes: Record<string, number>; macroF1: number | null }[];
+    warnings?: string[];
+    classesMissingFromHoldout?: string[];
+    classesUnseenInTraining?: string[];
+  };
+  /** Optional IsolationForest fitted on benign training rows. */
+  novelty?: {
+    quantile: number;
+    threshold: number;
+    trainedOnRows: number;
+    benignFalsePositiveRate: number | null;
+    perClass: { label: string; support: number; flaggedShare: number }[];
+  } | null;
 }
 
 export interface ModelDetail extends ModelSummary {

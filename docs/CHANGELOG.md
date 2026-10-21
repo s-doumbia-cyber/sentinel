@@ -11,6 +11,14 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### Novelty detection: "unusual behaviour" (roadmap 5.7)
+- Flows get `scored.novelty` (score, threshold, above-threshold) when the active model has a novelty detector,
+  and `scored.unusualBehaviour` when the score is above the threshold and the classifier said Normal or was
+  below the review threshold. The class verdict is never changed and no alert is raised. Shown as a badge in
+  the Flows list, a section in the flow drawer, `?unusual=true` on `GET /flows` and the Flows page, and on the
+  Models page next to the held-out results. Tests: flagging rule, class unchanged, no alert, models without a
+  detector, badge.
+
 ### Model drift and analyst feedback (roadmap 1.9)
 - Drift job: `POST /models/:version/drift` (Analyst and above; window 1 h to 30 days, default 24 h) samples
   flows that model version scored recently (`$sample`, at most 20,000, at least 200 required, otherwise no

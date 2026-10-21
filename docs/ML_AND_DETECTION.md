@@ -101,7 +101,11 @@ Starter rules: port scan (distinct dst ports), SSH/FTP brute force (many short f
 
 ## 8. Confidence, unknowns and novelty
 
-*Implemented 2026-10-21 (roadmap 5.7):* see "Novelty detector" below in this section for what exists and what does not.
+### Novelty detector (implemented 2026-10-21, roadmap 5.7)
+
+Set `novelty.enabled: true` in a training config to fit an IsolationForest on the benign (Normal) training rows. Its threshold is a quantile (default 0.99) of the benign training scores, saved with the model (`novelty.joblib`); the model card reports the measured benign false-positive rate on the test split and the share of each attack class above the threshold. `/predict` adds `novelty: {score, threshold, aboveThreshold}` next to each verdict.
+
+Sentinel calls a flow **unusual behaviour** only when the novelty score is above the threshold **and** the classifier either said Normal or was below the organisation's review threshold. Every known attack is also unusual compared with benign traffic, so novelty alone would flag all of them. The class label is never changed, the flag is never mapped to an attack class, and it raises **no alert**: an alert needs an alert class with its own severity and MITRE treatment, which has not been decided. The flag is stored on the flow (`scored.unusualBehaviour`), shown as a badge and in the flow drawer, filterable with `?unusual=true` on the Flows page, and described on the Models page. Models trained without it simply have no novelty field. The detector is trained on whatever "Normal" means in the training data: on CICIDS2017 that is a 2017 testbed, so "unusual" there says little about your network.
 
 - Confidence below the org threshold (default 0.6) → alert status `needs_review` (never a hard verdict).
 - Stretch: an IsolationForest trained on benign lab traffic produces a `novelty` score. High novelty with low class confidence → "Unknown behaviour" alert. Report its false-positive rate in the model card.

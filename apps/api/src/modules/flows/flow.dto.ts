@@ -29,6 +29,8 @@ export interface LeanFlow {
     confidence: number;
     severity: string;
     needsReview: boolean;
+    novelty?: { score?: number | null; threshold?: number | null; aboveThreshold?: boolean | null } | null;
+    unusualBehaviour?: boolean | null;
     scoredAt: Date;
     probabilities?: MapLike<number> | null;
     topFeatures?: { name?: string | null; contribution?: number | null; value?: number | null }[] | null;
@@ -68,6 +70,8 @@ export function toFlowResponse(f: LeanFlow, opts: { withFeatures?: boolean } = {
           confidence: f.scored.confidence,
           severity: f.scored.severity,
           needsReview: f.scored.needsReview,
+          novelty: f.scored.novelty ? { score: f.scored.novelty.score ?? 0, threshold: f.scored.novelty.threshold ?? 0, aboveThreshold: Boolean(f.scored.novelty.aboveThreshold) } : null,
+          unusualBehaviour: Boolean(f.scored.unusualBehaviour),
           scoredAt: f.scored.scoredAt,
           probabilities: plain(f.scored.probabilities ?? null),
           topFeatures: (f.scored.topFeatures ?? []).map((t) => ({ name: t.name ?? "", contribution: t.contribution ?? 0, value: t.value ?? null })),

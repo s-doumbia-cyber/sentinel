@@ -28,6 +28,7 @@ export function buildFlowFilter(orgId: Types.ObjectId, q: Partial<FlowQuery & St
   else if (q.verdict) Object.assign(filter, { scoreStatus: "scored", "scored.label": q.verdict });
   if (q.severity) Object.assign(filter, { scoreStatus: "scored", "scored.severity": q.severity });
   if (q.needsReview) Object.assign(filter, { scoreStatus: "scored", "scored.needsReview": true });
+  if (q.unusual) Object.assign(filter, { scoreStatus: "scored", "scored.unusualBehaviour": true });
   return filter;
 }
 

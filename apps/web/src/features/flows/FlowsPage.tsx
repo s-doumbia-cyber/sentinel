@@ -12,7 +12,7 @@ import { useFlows, type FlowFilters } from "@/lib/queries";
 import type { Flow } from "@/lib/types";
 import { FlowDrawer } from "./FlowDrawer";
 
-const FILTER_KEYS = ["verdict", "sourceKind", "sourceIp", "destinationIp", "protocol", "port", "datasetId", "needsReview"] as const;
+const FILTER_KEYS = ["verdict", "sourceKind", "sourceIp", "destinationIp", "protocol", "port", "datasetId", "needsReview", "unusual"] as const;
 
 function GroundTruth({ flow }: { flow: Flow }) {
   if (!flow.groundTruthLabel) return <span className="text-fg-3">{flow.rawLabel ? `unknown (“${flow.rawLabel}”)` : "—"}</span>;
@@ -126,6 +126,11 @@ export function FlowsPage() {
           </div>
         </form>
         {filters.needsReview && <p className="mt-3 text-small text-fg-2">Showing verdicts below the organisation’s confidence threshold (needs review).</p>}
+        {filters.unusual && (
+          <p className="mt-3 text-small text-fg-2">
+            Showing unusual behaviour: flows far from the benign traffic the model was trained on that it did not recognise as a known attack with confidence. This is not an attack verdict.
+          </p>
+        )}
         {filters.datasetId && <p className="mt-3 text-small text-fg-2">Showing flows from one dataset.</p>}
       </Card>
 

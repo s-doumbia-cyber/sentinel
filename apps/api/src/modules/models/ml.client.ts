@@ -69,6 +69,7 @@ const predictResponseSchema = z.object({
       topFeatures: z
         .array(z.object({ name: z.string(), contribution: z.number(), value: z.number().nullable() }))
         .optional(),
+      novelty: z.object({ score: z.number(), threshold: z.number(), aboveThreshold: z.boolean() }).optional(),
     }),
   ),
 });

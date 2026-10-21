@@ -47,6 +47,7 @@ export type FlowFilters = {
   severity?: string;
   port?: string;
   needsReview?: string;
+  unusual?: string;
 };
 
 /** Query keys include the org so cached data is never shown under another org. */

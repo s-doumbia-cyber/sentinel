@@ -131,6 +131,8 @@ export function writeCsv(rows: CsvRow[], header: string[] = CICIDS_HEADER): stri
  */
 export class FakeMl implements MlClient {
   calls: { modelVersion: string; count: number }[] = [];
+  /** When true, every result carries a novelty score: above the threshold for DDoS-like flows and Flow Duration 7 / 21 / 22. */
+  novelty = false;
   fail: "none" | "unavailable" | "contract" = "none";
   readonly models: ModelDetail[] = ["bench-a", "bench-b"].map((version) => ({
     version,
@@ -180,6 +182,12 @@ export class FakeMl implements MlClient {
           label: label as string,
           confidence: confidence as number,
           probabilities: { [label as string]: confidence as number },
+          ...(this.novelty
+            ? (() => {
+                const above = pps > 1000 || dur === 7 || dur === 21 || dur === 22;
+                return { novelty: { score: above ? 0.7 : 0.4, threshold: 0.55, aboveThreshold: above } };
+              })()
+            : {}),
           topFeatures: label === "Normal" ? [] : [{ name: "Flow Packets/s", contribution: 0.3, value: pps }],
         };
       }),

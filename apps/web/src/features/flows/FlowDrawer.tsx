@@ -58,6 +58,19 @@ function Body({ flow }: { flow: Flow }) {
         </Section>
       )}
 
+      {s?.novelty && (
+        <Section title="Novelty (unusual behaviour)">
+          <p className="text-small text-fg-2">
+            Novelty score <span className="tnum font-medium text-fg-1">{s.novelty.score.toFixed(3)}</span> against a threshold of <span className="tnum">{s.novelty.threshold.toFixed(3)}</span>.{" "}
+            {s.unusualBehaviour
+              ? "This flow is far from the benign traffic the model was trained on, and the classifier did not recognise it as a known attack with confidence. It is not an attack verdict and it keeps the class shown above: look at it, and consider labelling similar flows so a future model can learn them."
+              : s.novelty.aboveThreshold
+                ? "Above the threshold, which is expected for a recognised attack: it is not reported as unusual."
+                : "Within the range of the benign traffic the model was trained on."}
+          </p>
+        </Section>
+      )}
+
       {s?.probabilities && (
         <Section title="Class probabilities">
           <Probabilities probs={s.probabilities} />
