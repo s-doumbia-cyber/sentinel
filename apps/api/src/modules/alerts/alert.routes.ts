@@ -25,6 +25,7 @@ import { decodeCursor, encodeCursor } from "../flows/flow.filters.js";
 import { attributeAddress } from "../identity/identity.service.js";
 import { definitionOf } from "../rules/rule.service.js";
 import { buildAlertAnalysis } from "./analysis.js";
+import { summarizeAlerts } from "./summary.js";
 
 const SEVERITY_BY_RANK = Object.fromEntries(SEVERITIES.map((s) => [severityRank(s), s])) as Record<number, Severity>;
 
@@ -36,6 +37,12 @@ const listQuery = z.object({
   type: z.enum(ATTACK_CLASSES).optional(),
   sourceIp: z.string().ip().optional(),
   source: z.enum(["model", "rule"]).optional(),
+});
+
+/** Optional range: alerts whose activity overlaps it (all time when omitted). */
+const summaryQuery = z.object({
+  from: z.string().datetime({ offset: true }).transform((v) => new Date(v)).optional(),
+  to: z.string().datetime({ offset: true }).transform((v) => new Date(v)).optional(),
 });
 
 type LeanAlert = Omit<AlertDoc, "createdAt" | "updatedAt"> & { createdAt: Date; updatedAt: Date };
@@ -97,22 +104,10 @@ export function alertRoutes(config: AppConfig): PolicyRouter {
     "get",
     "/alerts/summary",
     "alerts:read",
+    validate("query", summaryQuery),
     ah(async (req, res) => {
       const { orgId } = authOf(req);
-      const rows = await Alert.aggregate<{ _id: { status: string; rank: number }; n: number }>([
-        { $match: { orgId } },
-        { $group: { _id: { status: "$status", rank: "$severityRank" }, n: { $sum: 1 } } },
-      ]);
-      const byStatus: Record<string, number> = {};
-      const activeBySeverity: Record<string, number> = {};
-      for (const row of rows) {
-        byStatus[row._id.status] = (byStatus[row._id.status] ?? 0) + row.n;
-        if (["open", "needs_review", "acknowledged"].includes(row._id.status)) {
-          const sev = SEVERITY_BY_RANK[row._id.rank] ?? "info";
-          activeBySeverity[sev] = (activeBySeverity[sev] ?? 0) + row.n;
-        }
-      }
-      res.json({ byStatus, activeBySeverity, total: rows.reduce((a, b) => a + b.n, 0) });
+      res.json(await summarizeAlerts(orgId, parsed<z.infer<typeof summaryQuery>>(req, "query")));
     }),
   );
 
