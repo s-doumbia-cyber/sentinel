@@ -1,6 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { featureGlossaryEntry, formatFeatureValue } from "@sentinel/shared";
 import { cn, formatCount, formatExact } from "@/lib/format";
 import type { TopFeature } from "@/lib/types";
 import { Skeleton } from "./States";
@@ -89,13 +90,17 @@ export function FeatureContributionChart({ features, space }: { features: TopFea
         {features.map((f) => {
           const pct = (Math.abs(f.contribution) / max) * 50;
           const positive = f.contribution >= 0;
+          const entry = featureGlossaryEntry(f.name);
           return (
             <li key={f.name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] items-center gap-3">
               <div className="min-w-0">
-                <p className="truncate text-small text-fg-1" title={f.name}>
-                  {f.name}
+                <p className="truncate text-small text-fg-1" title={entry ? `${entry.meaning} (model feature: ${f.name})` : f.name}>
+                  {entry?.label ?? f.name}
                 </p>
-                <p className="tnum text-caption text-fg-3">value {f.value === null ? "missing (imputed)" : formatExact(f.value)}</p>
+                <p className="tnum truncate text-caption text-fg-3" title={f.name}>
+                  value {f.value === null ? formatFeatureValue(f.name, null) : formatFeatureValue(f.name, f.value)}
+                  {entry && <span className="font-mono"> · {f.name}</span>}
+                </p>
               </div>
               <div className="relative h-5" aria-hidden>
                 <span className="absolute inset-y-0 left-1/2 w-px" style={{ backgroundColor: "var(--border-strong)" }} />
@@ -110,7 +115,7 @@ export function FeatureContributionChart({ features, space }: { features: TopFea
       </ul>
       <figcaption className="mt-3 text-caption text-fg-3">
         {features
-          .map((f) => `${f.name} ${f.contribution >= 0 ? "increased" : "decreased"} the score by ${Math.abs(f.contribution).toFixed(3)}`)
+          .map((f) => `${featureGlossaryEntry(f.name)?.label ?? f.name} ${f.contribution >= 0 ? "increased" : "decreased"} the score by ${Math.abs(f.contribution).toFixed(3)}`)
           .join("; ")}
         . Contributions{space ? ` (${space})` : ""} describe the model’s behaviour, not the cause of an attack.
       </figcaption>

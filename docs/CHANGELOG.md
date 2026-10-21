@@ -11,6 +11,13 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### Feature glossary (roadmap 1.6)
+- `packages/shared/src/featureGlossary.json`: a plain-language label, unit and one-sentence meaning for
+  each of the 44 `cicids2017-v1` features. The "why" bars in the alert and flow drawers now read
+  "Packets per second · value 812 packets/s" with the model feature name still shown and an unknown
+  name falling back to itself. Tests: every schema feature has an entry, units match the schema JSON,
+  labels are distinct, values format with units.
+
 ### Drift reference and novelty detector (ML service)
 - Every trained model now stores `reference.json`, a compact 10-bin histogram per feature of the rows
   it was fitted on (`GET /models/{version}/reference`); the drift check compares recent flows to it.
