@@ -8,11 +8,27 @@ every verdict comes from a model you can inspect (never from a dataset label), e
 where it came from, and every model ships with per-class results and its known limits.
 
 > **Status (October 2026): working foundation.** CSV import, real ML scoring with SHAP explanations,
-> detection rules, alerts with evidence-based analysis, correlation into incidents, an attack timeline,
-> response guidance (recommend and simulate only), incident reports, an asset inventory, identity
-> attribution from imported records, validation runs, multi-tenant orgs, secure auth, RBAC and an
-> audit log work end to end and are tested. Live capture, integrations (webhooks, VPN / AD / EDR
-> connectors) and any enforcement are **not built**; see [ROADMAP.md](ROADMAP.md).
+> drift checks and novelty flags, detection rules, alerts with evidence-based analysis and noise
+> controls, correlation into incidents, an attack timeline and entity graph, response guidance
+> (recommend and simulate only), incident and executive reports (PDF), an asset inventory, identity
+> attribution from imported records, validation runs, durable background jobs, multi-tenant orgs with
+> invitations, secure auth with optional two-factor, RBAC and an audit log work end to end and are
+> tested. Live capture, integrations (webhooks, VPN / AD / EDR connectors) and any enforcement are
+> **not built**; see [ROADMAP.md](ROADMAP.md).
+
+**For the expo:** [one-page pitch](docs/PITCH.md) · [demo script](docs/DEMO.md) ·
+[evaluation report](docs/EVALUATION.md) (every number measured, with what it does not show).
+
+## Screenshots
+
+Synthetic DEMO scenario imported on a throwaway stack (`npm run docs:screenshots -w @sentinel/e2e`);
+no ML service runs there, so both alerts come from rules and the model card says so.
+
+| | |
+|---|---|
+| ![Command Center](docs/screenshots/02-command-center.png) Command Center: provenance badge, KPIs, model health | ![Alert evidence](docs/screenshots/03-alert-evidence.png) An alert: observed, inferred and unknown, kept apart |
+| ![Incident graph](docs/screenshots/05-incident-graph.png) Incident graph: attacker, target and peers | ![Executive report](docs/screenshots/06-executive-report.png) Executive report (also as PDF) |
+| ![Command palette](docs/screenshots/07-command-palette.png) Ctrl+K: pages, addresses, ids | ![Command Center in French](docs/screenshots/08-command-center-fr.png) The interface in French |
 
 ## What works today
 
@@ -32,14 +48,19 @@ where it came from, and every model ships with per-class results and its known l
 | Assets | Inventory of addresses seen in flows: services accepted, peers, activity over time, alerts, notes, and a history of changes (new or vanished services, estimate changes, inactive / seen again, note edits) that ignores scan noise. Device type is a low-confidence estimate from ports, labelled as such, or "unknown" with what would help. |
 | Identity | Import VPN / DHCP / auth / EDR / directory records (CSV). Attribution shows each matching record with its source, validity window and graded confidence, flags ambiguity, and says "unknown" (and what would help) when nothing matches. An IP is never presented as proof of identity. Look up an account, hostname or MAC to see the addresses it held, when, and the alerts on those addresses in those windows (each lookup is audited). |
 | Validation | Test a model version or a rule version on a labelled dataset: per-class precision / recall / F1 / support, false-positive and false-negative samples (with SHAP for models), dataset hash, training-overlap check, author and time. Results are stored and immutable. |
-| Investigation | Flow explorer with URL filters; asset links from flows and alerts. |
-| Organisations | Multi-tenant orgs, roles Owner / Admin / Analyst / Viewer enforced server-side, append-only audit log, sessions, data export, account deletion. |
+| Investigation | Flow explorer with URL filters; entity graph (Cytoscape) on asset and incident pages with a list alternative; command palette (Ctrl+K) and G-then-letter shortcuts; incident board with keyboard and mouse drag and drop, every move audited. |
+| Reports | Executive report for a period (same numbers as the dashboard, time to triage, quality on labelled data, provenance, limitations) and incident reports, both as server-generated PDFs. |
+| Model monitoring | Drift check per model version (PSI per feature against the training reference), analyst feedback per model, "unusual behaviour" flag from an optional novelty detector (never an attack class). Rebuild existing alerts under new noise settings, keeping analyst work. |
+| Organisations | Multi-tenant orgs, roles Owner / Admin / Analyst / Viewer enforced server-side, invitation links, member removal with last-Owner safeguards, optional TOTP two-factor sign-in with recovery codes, append-only audit log, sessions, data export, account deletion. |
+| Operations | Durable background jobs (BullMQ on Redis, or in-process without it) with retries and dead letters; System page; per-org data retention (off by default); minute rollups for dashboards; OpenAPI at `/api/docs`; optional Prometheus `/metrics`. |
+| Language | English and French for navigation, sign-in, the Command Center, the search palette and Settings; other pages are English for now, and the language setting says so. |
 
 ## Architecture
 
 ```
  Browser (React SPA) ──/api/v1──▶ API (Node 22+, Express, TypeScript) ──▶ MongoDB
                                      │  auth, RBAC, tenancy, import, stats, audit
+                                     ├──▶ Redis (optional): BullMQ job queue, workers in the API or in src/worker.ts
                                      └──/predict──▶ ML service (FastAPI, scikit-learn, SHAP)
                                                      model registry = services/ml/artifacts/
 ```
@@ -149,30 +170,37 @@ invisible, and flags the invented incidents. Migrated flows are then scored by t
 | `npm run demo:data` | regenerate the synthetic DEMO scenario files in `data/demo/` (no database access) |
 | `npm run seed:demo [-- --yes] [-- --mongo-uri <uri>]` | create the isolated demo workspace (dry run without `--yes`) |
 | `npm run e2e:install` then `npm run test:e2e` | Playwright end-to-end and accessibility suite (own throwaway stack) |
+| `npm run docs:screenshots -w @sentinel/e2e` | regenerate the README screenshots on the same throwaway stack |
+| `npm run bench -w @sentinel/api -- --flows 3000000 --dbpath <empty dir>` | dashboard benchmark on its own throwaway mongod ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 
 ## Testing
 
-- `packages/shared`: 100 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
-  schema drift, rules DSL, attribution grading, device estimates, knowledge base, blocklist syntax).
-- `apps/api`: 134 tests (18 rule-evaluator unit tests; the rest are integration tests on a real
-  in-memory MongoDB): configuration, auth (rotation, reuse detection, logout-all, CSRF, rate limit,
-  legacy hash upgrade), tenant isolation, RBAC role × route matrix, audit per mutation, import,
-  scoring, stats, evaluation, migration, alerts and rules, correlation, incident events and trace,
-  response simulations, reports, assets and their history, identity attribution and lookup,
-  validation runs, demo seed, the entity graph (bounds, truncation, tenancy) and the executive report
-  and PDFs (numbers equal the dashboard's for the same range).
-- `apps/web`: 75 tests (Testing Library): API client and downloads, class merging, rule descriptions,
-  evidence and attribution panels, graph view and model, command palette and shortcuts, incident board
-  (keyboard moves, rollback), reports page.
-- `e2e` (Playwright, Chromium): the analyst journey on the DEMO scenario (alert → observed / inferred /
-  unknown → DHCP attribution → triage → correlated incident → attack timeline → blocklist simulation
-  → report → investigation log), tokens absent from web storage, no horizontal scroll at 375 px,
-  every page reachable on mobile, the incident trace, account lookup and asset history, and axe
-  (WCAG 2.1 A/AA) with no serious violation on 21 views in the light theme and 10 in the dark theme. The suite starts its own API on an in-memory MongoDB (ports
+Counts from the merged `main` on 2026-10-22, all passing:
+
+- `packages/shared`: 105 unit tests (label normaliser incl. shared vectors, maps, RBAC matrix, feature
+  schema drift, feature glossary, rules DSL, CIDR parsing, attribution grading, device estimates,
+  knowledge base, blocklist syntax).
+- `apps/api`: 197 tests, most of them integration tests on a real in-memory MongoDB: configuration,
+  auth (rotation, reuse detection, logout-all, CSRF, rate limit, TOTP, legacy hash upgrade), tenant
+  isolation, RBAC role × route matrix, audit per mutation, import (incl. retried and crashed jobs),
+  scoring, alert claims, stats and rollups, noise controls and alert rebuild, drift and feedback,
+  novelty, correlation, incidents and trace, response simulations, reports and PDFs, assets, identity,
+  validation runs, invitations and members, retention, OpenAPI coverage, metrics, security headers and
+  upload hardening. 3 more BullMQ tests run against a real Redis in CI (skipped locally without
+  `SENTINEL_TEST_REDIS_URL`).
+- `apps/web`: 94 tests (Testing Library): API client, evidence and attribution panels, graph view,
+  command palette and shortcuts, incident board, reports, detection tuning and rebuild, monitoring
+  panel, translations (key and placeholder parity, French sign-in page), UTF-8 source check.
+- `e2e` (Playwright, Chromium): 18 journeys: the analyst journey on the DEMO scenario (alert →
+  observed / inferred / unknown → DHCP attribution → triage → incident → timeline → blocklist
+  simulation → report → investigation log), tokens absent from web storage, the graph, palette and
+  board, reports and PDFs, invitation and two-factor sign-in, the System page, detection tuning,
+  switching to French, no horizontal scroll at 375 px, and axe (WCAG 2.1 A/AA) with no serious
+  violation in light and dark themes. The suite starts its own API on an in-memory MongoDB (ports
   4310 / 5310) and never loads `apps/api/.env`. First run: `npm.cmd run e2e:install` downloads Chromium
   (about 720 MB on disk under `%LOCALAPPDATA%\ms-playwright`).
-- `services/ml`: 46 pytest tests (artefacts, honest metrics, predict contract, schema and version
-  mismatch, SHAP reconstruction for random forest, gradient boosting and logistic regression).
+- `services/ml`: 60 pytest tests (artefacts, honest metrics, predict contract, schema and version
+  mismatch, SHAP reconstruction, day-wise holdout, drift reference, novelty detector).
 
 Continuous integration (`.github/workflows/ci.yml`) runs all of the above plus the Docker build on
 every push to `main` and every pull request. On GitHub (private repository `s-doumbia-cyber/sentinel`,
@@ -195,19 +223,17 @@ Other limits:
 
 - **The bundled model is a toy benchmark.** Trained on 990 rows of one CICIDS2017 capture (BENIGN vs
   DDoS, one attacker IP): macro-F1 1.00 on a random split but 0.52 on unseen source IPs. It says
-  nothing about other attacks or your network. Train on the full dataset for a broader benchmark,
-  and remember CICIDS2017 has known label errors and does not transfer to other networks.
-- No SSE stream, integrations (webhooks, Slack, VPN / AD / EDR connectors), executive reports,
-  invitations, MFA, i18n, command palette or drift monitoring yet.
-- Identity attribution only knows what you import: no live connector to a VPN gateway, directory or
-  EDR. Correlation groups alerts by source address and time; it is a hypothesis, not attribution.
-- Response is advisory: Sentinel generates and logs blocklist simulations but applies nothing.
-- The demo scenario is synthetic. Rules catch it by construction; the bundled model (trained on
-  BENIGN vs DDoS only) scored the SSH brute-force flows as benign in our check. Neither says anything about performance on a real network.
+  nothing about other attacks or your network. The full-dataset benchmark and its limits are in
+  [docs/EVALUATION.md](docs/EVALUATION.md); CICIDS2017 has known label errors and does not transfer to
+  other networks.
+- Identity attribution only knows what you import. Correlation groups alerts by source address and
+  time; it is a hypothesis, not attribution.
+- The demo scenario is synthetic. Rules catch it by construction; the bundled model (BENIGN vs DDoS
+  only) scores the SSH brute-force flows as benign. Neither says anything about a real network.
 - Rule windows are evaluated per import (or on "Run detections") over stored flows, not in real time.
-- Background jobs (import, scoring) run in-process: an API restart interrupts them (interrupted
-  imports are marked failed at startup; pending flows can be re-scored with "Score pending flows").
-- Dashboards aggregate raw flows; rollups for millions of rows are Phase 5.
+- Dashboards use minute rollups but still take about 2 s at 3 million flows; the 300 ms target is not
+  met ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)).
+- French covers part of the interface; Hindi is not translated.
 - CICIDS2017 timestamps are stored as recorded (no timezone; afternoon files use a 12-hour clock).
 
 ## Documentation
@@ -215,4 +241,6 @@ Other limits:
 [ROADMAP.md](ROADMAP.md) (plan, progress, decisions) · [docs/CHANGELOG.md](docs/CHANGELOG.md) ·
 [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 [docs/ML_AND_DETECTION.md](docs/ML_AND_DETECTION.md) · [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) ·
+[docs/EVALUATION.md](docs/EVALUATION.md) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · [docs/SECURITY_ASVS.md](docs/SECURITY_ASVS.md) ·
+[docs/DEMO.md](docs/DEMO.md) · [docs/PITCH.md](docs/PITCH.md) ·
 [services/ml/README.md](services/ml/README.md) · original project docs in `docs/legacy/`.

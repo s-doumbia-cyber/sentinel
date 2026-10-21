@@ -21,11 +21,11 @@ async function json<T>(res: Awaited<ReturnType<APIRequestContext["get"]>>): Prom
  * scenario through the same endpoints the UI uses: flows CSV, then identity records. Waits until
  * the rules have raised their two alerts and Sentinel has grouped them into one incident.
  */
-export async function seedDemoWorkspace(): Promise<DemoWorkspace> {
+export async function seedDemoWorkspace(who: { name?: string; orgName?: string } = {}): Promise<DemoWorkspace> {
   const api = await request.newContext({ baseURL: `${API_URL}/` });
   const email = `e2e-${randomBytes(4).toString("hex")}@example.com`;
   const password = `e2e-${randomBytes(12).toString("hex")}`;
-  const reg = await json<{ accessToken: string }>(await api.post("auth/register", { data: { name: "Amira Analyst", email, password, orgName: "E2E SOC" } }));
+  const reg = await json<{ accessToken: string }>(await api.post("auth/register", { data: { name: who.name ?? "Amira Analyst", email, password, orgName: who.orgName ?? "E2E SOC" } }));
   const headers = { Authorization: `Bearer ${reg.accessToken}` };
 
   const flows = await readFile(new URL("demo-scenario-flows.csv", DEMO_DIR));

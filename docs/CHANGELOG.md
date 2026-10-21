@@ -12,6 +12,13 @@ All notable changes. Dates are UTC.
   are translated; Hindi shows English. Tests: key / placeholder parity, the sign-in page in French, and an
   e2e journey (switch, reload, axe check, switch back).
 
+### Expo documents (roadmap 6.2, 6.4-6.6, drafts)
+- `docs/EVALUATION.md`, `docs/DEMO.md`, `docs/PITCH.md`; README with screenshots, the new features,
+  current test counts and limitations. Screenshots come from `npm run docs:screenshots -w @sentinel/e2e`
+  (synthetic DEMO data on the e2e throwaway stack).
+- Fixed two web files saved in Windows-1252 (the alert shortcuts line showed "�"); a test now checks
+  that every web source file is valid UTF-8. Dates and numbers follow the interface language.
+
 ### Merge of the detection, platform and investigation branches
 - The alert rebuild ("Apply these settings to existing alerts") now runs as the durable `reapply` job and
   is refused while scoring or another rebuild is queued or running, also across a separate worker process.
