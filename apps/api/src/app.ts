@@ -206,7 +206,10 @@ export function createApp(options: AppOptions): SentinelApp {
       }
       metrics
         .render({ queue: jobs, mongoUp: mongoose.connection.readyState === 1 })
-        .then((text) => res.type("text/plain; version=0.0.4").send(text))
+        .then((text) => {
+          res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+          res.send(text);
+        })
         .catch(next);
     });
   }

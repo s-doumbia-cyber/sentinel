@@ -37,7 +37,14 @@ export class PolicyRouter {
   ) {}
 
   route(method: Method, path: string, policy: Policy, ...handlers: RequestHandler[]): this {
-    const guards: RequestHandler[] = [];
+    // Recorded while the mount path is known: on error paths Express resets req.baseUrl before the
+    // response finishes, and metrics label requests by this template.
+    const guards: RequestHandler[] = [
+      (req, res, next) => {
+        res.locals.routeTemplate = `${req.baseUrl}${path}`;
+        next();
+      },
+    ];
     if (policy !== "public") guards.push(requireAuth(this.config, { allowNoOrg: policy === "account" }));
     if (policy !== "public" && policy !== "self" && policy !== "account") guards.push(authorize(policy));
     this.router[method](path, ...guards, ...handlers);

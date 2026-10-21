@@ -24,7 +24,8 @@ export class Metrics {
     return (req, res, next) => {
       const start = process.hrtime.bigint();
       res.on("finish", () => {
-        const route = req.route?.path ? `${req.baseUrl}${String(req.route.path)}` : "unmatched";
+        const template = res.locals.routeTemplate as string | undefined;
+        const route = template ?? (req.route?.path ? `${req.baseUrl}${String(req.route.path)}` : "unmatched");
         const seconds = Number(process.hrtime.bigint() - start) / 1e9;
         const key = `method="${req.method}",route="${route}",status="${res.statusCode}"`;
         this.requests.set(key, (this.requests.get(key) ?? 0) + 1);

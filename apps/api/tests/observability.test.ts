@@ -50,7 +50,9 @@ describe("/metrics", () => {
     expect((await request(sa.app).get("/metrics")).status).toBe(401);
     expect((await request(sa.app).get("/metrics").set("Authorization", "Bearer wrong-token-0123456789")).status).toBe(401);
     const res = await request(sa.app).get("/metrics").set("Authorization", `Bearer ${token}`).expect(200);
-    expect(res.headers["content-type"]).toMatch(/text\/plain; version=0\.0\.4/);
+    // Prometheus text format 0.0.4 (Express may reorder the parameters).
+    expect(res.headers["content-type"]).toMatch(/^text\/plain;/);
+    expect(res.headers["content-type"]).toContain("version=0.0.4");
     expect(res.text).toContain('sentinel_http_requests_total{method="GET",route="/api/v1/alerts/:id",status="404"} 1');
     expect(res.text).toContain('sentinel_http_request_duration_seconds_bucket{method="POST",route="/api/v1/auth/register",le="+Inf"} 1');
     expect(res.text).toMatch(/sentinel_jobs\{kind="score",state="waiting",queue="in-process"\} 0/);
