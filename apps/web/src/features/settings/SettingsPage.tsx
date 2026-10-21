@@ -16,6 +16,7 @@ import { useSessions } from "@/lib/queries";
 import type { User, UserPreferences } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { DetectionTuning } from "./DetectionTuning";
+import { MfaSettings } from "./MfaSettings";
 
 function useSavePrefs() {
   const { setUser } = useAuth();
@@ -197,7 +198,7 @@ function Security() {
           </ul>
         )}
       </Card>
-      <p className="text-small text-fg-3">Multi-factor authentication is not available yet (roadmap 5.2).</p>
+      <MfaSettings />
       <ConfirmDialog
         open={confirmAll}
         onOpenChange={setConfirmAll}

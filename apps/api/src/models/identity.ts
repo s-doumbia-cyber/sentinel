@@ -38,6 +38,20 @@ const userSchema = new Schema(
       theme: { type: String, enum: THEMES, default: "light" },
       density: { type: String, enum: DENSITIES, default: "comfortable" },
     },
+    /** TOTP second factor. Seeds are AES-256-GCM sealed; recovery codes are SHA-256 hashes. */
+    mfa: {
+      enabled: { type: Boolean, default: false },
+      secretEnc: { type: String, default: null },
+      enabledAt: { type: Date, default: null },
+      /** Seed being enrolled, until the first valid code confirms it. */
+      pendingSecretEnc: { type: String, default: null },
+      pendingCreatedAt: { type: Date, default: null },
+      /** Last accepted TOTP time step: a code is never accepted twice. */
+      lastTimeStep: { type: Number, default: 0 },
+      recoveryCodeHashes: { type: [String], default: [] },
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null },
+    },
   },
   { timestamps: true },
 );

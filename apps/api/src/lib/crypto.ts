@@ -55,6 +55,22 @@ export function signAccessToken(claims: AccessClaims, secret: string, ttlSeconds
   return jwt.sign({ ...claims, typ: "access" }, secret, { algorithm: "HS256", expiresIn: ttlSeconds });
 }
 
+/** Short-lived proof that the password was right, exchanged for tokens once the second factor checks out. */
+export function signMfaToken(userId: string, secret: string, ttlSeconds = 300): string {
+  return jwt.sign({ sub: userId, typ: "mfa" }, secret, { algorithm: "HS256", expiresIn: ttlSeconds });
+}
+
+export function verifyMfaToken(token: string, secret: string): string | null {
+  try {
+    const payload = jwt.verify(token, secret, { algorithms: ["HS256"] });
+    if (typeof payload !== "object" || payload === null) return null;
+    const { sub, typ } = payload as Record<string, unknown>;
+    return typ === "mfa" && typeof sub === "string" ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function verifyAccessToken(token: string, secret: string): AccessClaims | null {
   try {
     const payload = jwt.verify(token, secret, { algorithms: ["HS256"] });

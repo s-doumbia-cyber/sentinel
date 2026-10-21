@@ -245,7 +245,12 @@ export function TeamPage() {
                 return (
                   <tr key={m.userId} className="border-b border-subtle last:border-0">
                     <td className="px-4 py-row text-fg-1">
-                      {m.name} {self && <NeutralBadge>you</NeutralBadge>}
+                      {m.name} {self && <NeutralBadge>you</NeutralBadge>}{" "}
+                      {m.mfaEnabled && (
+                        <NeutralBadge className="bg-sev-ok/15 text-sevfg-ok" title="Two-factor authentication is on">
+                          2FA
+                        </NeutralBadge>
+                      )}
                     </td>
                     <td className="px-4 py-row text-fg-2">{m.email}</td>
                     <td className="px-4 py-row">
@@ -358,6 +363,11 @@ const ACTIONS = [
   "auth.change_password",
   "auth.logout_all",
   "auth.session_revoke",
+  "auth.mfa_setup",
+  "auth.mfa_enabled",
+  "auth.mfa_disabled",
+  "auth.mfa_recovery_used",
+  "auth.mfa_recovery_regenerated",
   "user.update_profile",
   "member.role_change",
   "member.remove",

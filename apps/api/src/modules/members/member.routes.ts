@@ -31,13 +31,13 @@ export function memberRoutes(config: AppConfig): PolicyRouter {
       const { orgId } = authOf(req);
       const memberships = await Membership.find({ orgId }).sort({ createdAt: 1 }).lean();
       const users = await User.find({ _id: { $in: memberships.map((m) => m.userId) } })
-        .select("name email createdAt")
+        .select("name email createdAt mfa.enabled")
         .lean();
       const byId = new Map(users.map((u) => [String(u._id), u]));
       res.json({
         items: memberships.flatMap((m) => {
           const u = byId.get(String(m.userId));
-          return u ? [{ userId: String(u._id), name: u.name, email: u.email, role: m.role, joinedAt: m.createdAt }] : [];
+          return u ? [{ userId: String(u._id), name: u.name, email: u.email, role: m.role, joinedAt: m.createdAt, mfaEnabled: Boolean(u.mfa?.enabled) }] : [];
         }),
       });
     }),

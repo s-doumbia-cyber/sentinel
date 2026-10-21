@@ -18,6 +18,9 @@ import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { mfaRoutes } from "./modules/auth/mfa.routes.js";
+import { MfaService } from "./modules/auth/mfa.service.js";
+import { SecretBox } from "./lib/secrets.js";
 import { datasetRoutes } from "./modules/datasets/dataset.routes.js";
 import { flowRoutes } from "./modules/flows/flow.routes.js";
 import { CorrelationService } from "./modules/incidents/correlation.service.js";
@@ -141,6 +144,10 @@ export function createApp(options: AppOptions): SentinelApp {
   const routers: PolicyRouter[] = [
     health,
     authRoutes(config, { authRateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 } }),
+    mfaRoutes(config, {
+      mfa: new MfaService(new SecretBox(config.encryption.key)),
+      rateLimit: options.authRateLimit ?? { windowMs: 15 * 60 * 1000, max: 20 },
+    }),
     flowRoutes(config),
     statsRoutes(config),
     datasetRoutes(config, { schedule, uploadDir: config.uploadDir ?? tmpdir() }),

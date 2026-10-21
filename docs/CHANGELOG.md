@@ -4,6 +4,14 @@ All notable changes. Dates are UTC.
 
 ## 2026-10-21
 
+### Two-factor authentication (roadmap 5.2)
+- TOTP enrolment from Settings → Security (password re-check, QR code or manual key, first code confirms),
+  10 one-time recovery codes shown once, disable and regenerate behind the password.
+- Sign-in asks for the code after the password; a code is never accepted twice; 5 wrong codes lock the
+  factor for 15 minutes; endpoints rate-limited per IP and account. Enabling signs out other sessions.
+- Seeds sealed with AES-256-GCM (`ENCRYPTION_KEY`, optional); recovery codes hashed; neither is exported.
+- Login answers unknown emails as slowly as wrong passwords.
+
 ### Team invitations and member management (roadmap 5.1)
 - Owners / Admins create single-use invitation links (1-14 days, one email, token stored as SHA-256 and
   shown once, sent in the URL fragment). Only Owners can invite or revoke Owners.

@@ -88,7 +88,13 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     limiter,
     validate("body", loginBodySchema),
     ah(async (req, res) => {
-      const { user, orgs, tokens } = await auth.login(config, req, parsed(req, "body"));
+      const result = await auth.login(config, req, parsed(req, "body"));
+      if (result.mfaRequired) {
+        // No session yet: the client must answer the second factor at /auth/mfa/verify.
+        res.json({ mfaRequired: true, mfaToken: result.mfaToken, expiresIn: 300 });
+        return;
+      }
+      const { user, orgs, tokens } = result;
       setRefreshCookie(res, tokens.refreshToken, tokens.refreshExpiresAt);
       res.json({ accessToken: tokens.accessToken, expiresIn: tokens.expiresIn, user: auth.toUserResponse(user), orgs });
     }),
@@ -240,7 +246,8 @@ export function authRoutes(config: AppConfig, options: AuthRouteOptions): Policy
     "self",
     ah(async (req, res) => {
       const { userId } = authOf(req);
-      const user = await User.findById(userId).select("-passwordHash").lean();
+      // Never export secrets: password hash, TOTP seeds, recovery-code hashes.
+      const user = await User.findById(userId).select("-passwordHash -mfa.secretEnc -mfa.pendingSecretEnc -mfa.recoveryCodeHashes").lean();
       const sessions = await AuthSession.find({ userId }).select("-refreshTokenHash -rotatedHashes").lean();
       res.json({ exportedAt: new Date().toISOString(), account: user, memberships: await auth.listMyOrgs(userId), sessions });
     }),

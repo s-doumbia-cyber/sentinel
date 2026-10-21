@@ -12,7 +12,9 @@ interface AuthValue {
   orgs: OrgMembership[];
   activeOrg: OrgMembership | null;
   role: Role | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves with a challenge when the account uses MFA; `verifyMfa` then completes the sign-in. */
+  login: (email: string, password: string) => Promise<{ mfaToken: string } | null>;
+  verifyMfa: (mfaToken: string, answer: { code: string } | { recoveryCode: string }) => Promise<{ recoveryCodesLeft: number }>;
   register: (input: { name: string; email: string; password: string; orgName?: string }) => Promise<void>;
   logout: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
@@ -121,9 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeOrg,
       role,
       async login(email, password) {
-        const res = await api<AuthResponse>("/auth/login", { method: "POST", body: { email, password } });
+        const res = await api<AuthResponse | { mfaRequired: true; mfaToken: string }>("/auth/login", { method: "POST", body: { email, password } });
+        if ("mfaRequired" in res) return { mfaToken: res.mfaToken };
         setAccessToken(res.accessToken);
         adopt(res.user, res.orgs);
+        return null;
+      },
+      async verifyMfa(mfaToken, answer) {
+        const res = await api<AuthResponse & { recoveryCodesLeft: number }>("/auth/mfa/verify", { method: "POST", body: { mfaToken, ...answer } });
+        setAccessToken(res.accessToken);
+        adopt(res.user, res.orgs);
+        return { recoveryCodesLeft: res.recoveryCodesLeft };
       },
       async register(input) {
         const res = await api<AuthResponse>("/auth/register", { method: "POST", body: input });

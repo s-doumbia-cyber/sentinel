@@ -95,7 +95,7 @@ describe("RBAC matrix (role × route)", () => {
     for (const r of sa.routes) {
       if (r.mutating && r.policy === "public") {
         // Only the pre-authentication auth endpoints may be public.
-        expect(r.path, `${r.method} ${r.path}`).toMatch(/\/(auth\/(register|login|refresh|logout)|invites\/(lookup|accept))$/);
+        expect(r.path, `${r.method} ${r.path}`).toMatch(/\/(auth\/(register|login|refresh|logout)|auth\/mfa\/verify|invites\/(lookup|accept))$/);
       }
     }
   });

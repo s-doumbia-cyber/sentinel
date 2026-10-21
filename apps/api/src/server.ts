@@ -12,6 +12,9 @@ async function main() {
     logger.warn("JWT_SECRET is deprecated; rename it to JWT_ACCESS_SECRET in apps/api/.env");
   }
   if (!config.ml.url) logger.warn("ML_SERVICE_URL is not set: flows will be stored but stay unscored");
+  if (config.encryption.derivedFromAccessSecret) {
+    logger.warn("ENCRYPTION_KEY is not set: TOTP seeds are sealed with a key derived from JWT_ACCESS_SECRET; rotating that secret would disable enrolled authenticators");
+  }
 
   mongoose.set("strictQuery", true);
   await mongoose.connect(config.mongoUri);
