@@ -116,7 +116,7 @@
 
 ## Phase 6 — Expo and pitch package
 
-- [ ] **6.1 `docker compose --profile demo up`** seeds org, role users, honest replay source, trained sample model; everything tagged DEMO/REPLAY. ⏳ *2026-10-20: `npm run seed:demo` creates the org, Owner / Analyst / Viewer accounts and the synthetic DEMO scenario (tested, run on a throwaway database). No Compose profile, no replay source and no model activation yet.*
+- [ ] **6.1 `docker compose --profile demo up`** seeds org, role users, honest replay source, trained sample model; everything tagged DEMO/REPLAY. ⏳ *2026-10-21: `docker compose --profile demo up --build` adds `ml-train-demo` (sample model, once) and `demo-seed` (the seed below, once, only against the stack's own mongo via `--require-host mongo`, credentials printed once to its log); the compose file validates with `docker compose config` and the compiled seed ran twice on a throwaway database, but `up` has not been run (Docker Desktop was off). 2026-10-20: `npm run seed:demo` creates the org, Owner / Analyst / Viewer accounts and the synthetic DEMO scenario (tested, run on a throwaway database). No replay source yet; the sample model is trained but deliberately not activated.*
 - [ ] **6.2 Demo script** (5 minutes) in `docs/DEMO.md`, rehearsed; fallback steps if the live attack fails.
 - [ ] **6.3 Backup video** (2-3 min) recorded from a clean run.
 - [ ] **6.4 README.** Architecture diagram, screenshots/GIFs, quick start, benchmarks, honest limitations, roadmap.

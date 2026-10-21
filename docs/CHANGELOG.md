@@ -11,6 +11,14 @@ All notable changes. Dates are UTC.
   macro-F1 and warnings: a class absent from the held-out side gets no estimate, a class that appears
   only there is excluded and counted, and a pattern that matches nothing is an error. pytest coverage.
 
+### One-command demo (roadmap 6.1)
+- `docker compose --profile demo up --build` adds `ml-train-demo` (trains the sample model into the stack's
+  volume unless one exists) and `demo-seed` (runs the compiled `seed-demo` once against the stack's own
+  MongoDB; random credentials printed once to its log; a second run reports "already exists"). The seed gets
+  `--require-host <name>` and refuses any other database host. The API image now carries `data/demo`.
+- Not verified end to end: Docker Desktop was not running, so `docker compose up` was not run; the compose file
+  was validated with `docker compose config` and the compiled seed script was run twice on a throwaway MongoDB.
+
 ### Novelty detection: "unusual behaviour" (roadmap 5.7)
 - Flows get `scored.novelty` (score, threshold, above-threshold) when the active model has a novelty detector,
   and `scored.unusualBehaviour` when the score is above the threshold and the classifier said Normal or was

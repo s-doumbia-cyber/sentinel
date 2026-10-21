@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createLogger } from "../src/lib/logger.js";
 import { Membership, Org, User } from "../src/models/identity.js";
 import { AuditLog, Dataset, Flow } from "../src/models/tenant.js";
-import { DEMO_ORG_SLUG, DemoExistsError, inspectDemo, seedDemo } from "../src/modules/demo/demo.seed.js";
+import { DEMO_ORG_SLUG, DemoExistsError, assertSeedHost, inspectDemo, seedDemo } from "../src/modules/demo/demo.seed.js";
 import { API, buildApp, registerUser } from "./helpers.js";
 
 const sa = buildApp();
@@ -54,5 +54,16 @@ describe("demo seed", () => {
     await expect(seedDemo({ flowsCsv, identityCsv, logger })).rejects.toBeInstanceOf(DemoExistsError);
     expect(await Org.countDocuments({ slug: DEMO_ORG_SLUG })).toBe(1);
     expect((await request(sa.app).get(`${API}/incidents`).set({ Authorization: `Bearer ${other.token}` })).body.items).toEqual([]);
+  });
+});
+
+describe("seed host guard", () => {
+  it("refuses any database host other than the required one, and does nothing when none is required", () => {
+    expect(() => assertSeedHost("mongodb://mongo:27017/sentinel", "mongo")).not.toThrow();
+    expect(() => assertSeedHost("mongodb://user:pw@mongo:27017/sentinel?authSource=admin", "mongo")).not.toThrow();
+    expect(() => assertSeedHost("mongodb://127.0.0.1:27017/sentinel", "mongo")).toThrow(/limited to "mongo"/);
+    expect(() => assertSeedHost("mongodb://mongo.evil.example:27017/sentinel", "mongo")).toThrow(/Refusing to seed/);
+    expect(() => assertSeedHost("not a uri", "mongo")).toThrow(/cannot be parsed/);
+    expect(() => assertSeedHost("mongodb://127.0.0.1:27017/sentinel", undefined)).not.toThrow();
   });
 });

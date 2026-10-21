@@ -208,6 +208,17 @@ docker compose --profile train run --rm ml-train
 docker compose up --build        # http://localhost:8080
 ```
 
+**One command, with the demo workspace:** `docker compose --profile demo up --build`, then
+`docker compose --profile demo logs demo-seed` shows the Owner / Analyst / Viewer sign-in details,
+printed once on the first run (copy them; a later run only reports that the demo exists). Open
+http://localhost:8080. The profile trains the sample model into the stack's own volume and seeds the
+DEMO data into the stack's own MongoDB (`demo-seed` is started with `--require-host mongo` and refuses
+any other database); it never reads or writes the MongoDB on your machine. The model is trained but
+not activated: activate it on the Models page. To start over: `docker compose --profile demo down -v`.
+The compose file was validated with `docker compose config` and the seed ran from the compiled image
+layout against a throwaway database (twice: created, then "already exists"); `docker compose up`
+itself was not run because Docker Desktop was not running on 2026-10-21.
+
 This path was verified earlier on 2026-10-20 (`npm run smoke` passed against it). It could not be
 re-run when this guide was last checked because Docker Desktop was not running on the machine.
 
