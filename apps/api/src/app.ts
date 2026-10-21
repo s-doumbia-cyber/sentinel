@@ -17,6 +17,7 @@ import { PolicyRouter, type RouteInfo } from "./lib/routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { alertRoutes } from "./modules/alerts/alert.routes.js";
 import { assetRoutes } from "./modules/assets/asset.routes.js";
+import { entityRoutes } from "./modules/entities/entity.routes.js";
 import { identityRoutes } from "./modules/identity/identity.routes.js";
 import { AlertService } from "./modules/alerts/alert.service.js";
 import { AlertRebuildService } from "./modules/alerts/rebuild.service.js";
@@ -42,6 +43,7 @@ import { createMlClient, type MlClient } from "./modules/models/ml.client.js";
 import { modelRoutes } from "./modules/models/model.routes.js";
 import { DriftService } from "./modules/monitoring/drift.service.js";
 import { monitoringRoutes } from "./modules/monitoring/monitoring.routes.js";
+import { reportRoutes } from "./modules/reports/report.routes.js";
 import { ruleRoutes } from "./modules/rules/rule.routes.js";
 import { RuleService } from "./modules/rules/rule.service.js";
 import { ScoringService } from "./modules/scoring/scoring.service.js";
@@ -187,6 +189,8 @@ export function createApp(options: AppOptions): SentinelApp {
     ruleRoutes(config, { rules, scheduleDetections: schedule.detect }),
     assetRoutes(config, { scheduleAssetRefresh: schedule.assets }),
     identityRoutes(config),
+    entityRoutes(config),
+    reportRoutes(config),
     validationRoutes(config, { ml }),
     jobRoutes(config, { queue: jobs }),
     retentionRoutes(config, { schedule }),

@@ -269,6 +269,7 @@ alertSchema.index({ orgId: 1, dedupeKey: 1 }, { unique: true });
 alertSchema.index({ orgId: 1, status: 1, lastSeen: -1 });
 alertSchema.index({ orgId: 1, lastSeen: -1, _id: -1 });
 alertSchema.index({ orgId: 1, srcIp: 1 });
+alertSchema.index({ orgId: 1, dstIp: 1 });
 alertSchema.index({ orgId: 1, incidentId: 1, firstSeen: 1 });
 alertSchema.index({ orgId: 1, updatedAt: 1 });
 tenantGuard(alertSchema, "Alert");

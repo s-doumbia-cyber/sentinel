@@ -20,6 +20,7 @@ const AssetsPage = lazy(() => import("@/features/assets/AssetsPage").then((m) =>
 const AssetDetailPage = lazy(() => import("@/features/assets/AssetsPage").then((m) => ({ default: m.AssetDetailPage })));
 const IdentitySourcesPage = lazy(() => import("@/features/identity/IdentitySourcesPage").then((m) => ({ default: m.IdentitySourcesPage })));
 const ValidationPage = lazy(() => import("@/features/validation/ValidationPage").then((m) => ({ default: m.ValidationPage })));
+const ReportsPage = lazy(() => import("@/features/reports/ReportsPage").then((m) => ({ default: m.ReportsPage })));
 const TeamPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.TeamPage })));
 const AuditPage = lazy(() => import("@/features/team/TeamAndAudit").then((m) => ({ default: m.AuditPage })));
 const SystemPage = lazy(() => import("@/features/system/SystemPage").then((m) => ({ default: m.SystemPage })));
@@ -100,6 +101,7 @@ export default function App() {
               </RequireRole>
             ),
           },
+          { path: "/reports", el: <ReportsPage /> },
           { path: "/team", el: <TeamPage /> },
           {
             path: "/audit",

@@ -1,7 +1,7 @@
 import { LayoutGrid, Plus, Table2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ATTACK_CLASSES, INCIDENT_STATUSES, PRIORITIES, SEVERITIES, createIncidentBodySchema } from "@sentinel/shared";
+import { ATTACK_CLASSES, PRIORITIES, SEVERITIES, createIncidentBodySchema } from "@sentinel/shared";
 import { NeutralBadge, SeverityBadge } from "@/components/ui/Badges";
 import { Button } from "@/components/ui/Button";
 import { Card, PageHeader } from "@/components/ui/Card";
@@ -14,6 +14,8 @@ import { api, errorMessage } from "@/lib/api";
 import { cn, formatWhen, utcTitle } from "@/lib/format";
 import { useIncidents, useMembers, useOrgMutation } from "@/lib/queries";
 import type { Incident } from "@/lib/types";
+import { IncidentBoard } from "./IncidentBoard";
+import { useMoveIncident } from "./useMoveIncident";
 
 
 
@@ -120,43 +122,14 @@ function CreateIncident({ open, onOpenChange }: { open: boolean; onOpenChange: (
   );
 }
 
-function Board({ items, onOpen }: { items: Incident[]; onOpen: (id: string) => void }) {
-  return (
-    <div role="region" aria-label="Incident board" tabIndex={0} className="grid gap-4 overflow-x-auto md:grid-cols-5">
-      {INCIDENT_STATUSES.map((status) => {
-        const col = items.filter((i) => i.status === status);
-        return (
-          <section key={status} aria-label={`${status} (${col.length})`} className="min-w-[220px] rounded-lg border border-subtle bg-bg-0 p-2">
-            <h2 className="flex items-center justify-between px-2 py-1.5 text-caption font-medium uppercase tracking-[0.04em] text-fg-3">
-              {status} <span className="tnum">{col.length}</span>
-            </h2>
-            <ul className="space-y-2">
-              {col.map((i) => (
-                <li key={i.id}>
-                  <button type="button" onClick={() => onOpen(i.id)} className="w-full rounded-md border bg-surface-1 p-3 text-left shadow-e1 hover:border-strong">
-                    <span className="flex flex-wrap gap-1">
-                      <NeutralBadge>{i.priority}</NeutralBadge>
-                      <SeverityBadge severity={i.severity} />
-                    </span>
-                    <span className="mt-2 line-clamp-2 block text-small font-medium text-fg-1">{i.title}</span>
-                    <span className="mt-1 block text-caption text-fg-3">{i.assignee?.name ?? "Unassigned"}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
 export function IncidentsPage() {
   const { can } = useAuth();
   const incidents = useIncidents();
   const [params, setParams] = useSearchParams();
   const view = params.get("view") === "board" ? "board" : "table";
   const navigate = useNavigate();
+  const toast = useToast();
+  const move = useMoveIncident();
   const [creating, setCreating] = useState(false);
   const items = incidents.data?.items ?? [];
   const set = (k: string, v: string | null) => {
@@ -202,7 +175,20 @@ export function IncidentsPage() {
           <EmptyState title="No incidents" description="Create one when a set of flows deserves an investigation." />
         </Card>
       ) : view === "board" ? (
-        <Board items={items} onOpen={(id) => navigate(`/incidents/${id}`)} />
+        <IncidentBoard
+          items={items}
+          canMove={can("incidents:write")}
+          onOpen={(id) => navigate(`/incidents/${id}`)}
+          onMove={(incident, to) =>
+            move.mutate(
+              { id: incident.id, status: to },
+              {
+                onSuccess: () => toast.success(`Moved to ${to}`),
+                onError: (e) => toast.error(`Could not move “${incident.title}”: ${errorMessage(e)}. It is back in ${incident.status}.`),
+              },
+            )
+          }
+        />
       ) : (
         <Card aria-label="Incidents table" tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-small">

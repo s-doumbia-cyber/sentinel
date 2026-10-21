@@ -215,3 +215,8 @@ Build on **Radix UI primitives** with Tailwind, in `apps/web/src/components/ui` 
 - Theme, density and accent persisted server-side (user preferences) with a no-flash inline script setting `data-theme` before paint.
 - Route-level code splitting; charts lazy-loaded; icons imported individually.
 - A `/dev/components` page documents every component and token (dev only), and Playwright visual snapshots guard against regressions on key pages.
+- **KanbanBoard** columns wrap (2 per row below 1024 px, 5 above) and never scroll sideways: dnd-kit's
+  keyboard handling cannot cope with a sideways-scrolling board. Keyboard drags go by the column the arrow
+  keys chose; mouse drags go by the pointer.
+- **GraphView** is Cytoscape with a concentric layout, a fit zoom capped at 1.25, shape + ring + a list view
+  for alerts (never colour alone), and no animation under `prefers-reduced-motion`.

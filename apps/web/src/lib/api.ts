@@ -155,6 +155,41 @@ export function uploadWithProgress<T>(path: string, form: FormData, onProgress: 
   })();
 }
 
+/**
+ * Downloads a generated file (a PDF) with the same auth, org header and one-shot token refresh as `api`.
+ * The filename comes from the server's Content-Disposition.
+ */
+export async function apiDownload(path: string, opts: RequestOptions = {}): Promise<{ blob: Blob; filename: string }> {
+  const send = () =>
+    fetch(`${BASE}${path}${buildQuery(opts.query)}`, {
+      method: opts.method ?? "POST",
+      credentials: "same-origin",
+      headers: headers(opts, false),
+      signal: opts.signal,
+    });
+  let res = await send();
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    if (await refreshSession()) res = await send();
+    else onSessionLost?.();
+  }
+  if (!res.ok) throw await toApiError(res);
+  const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "sentinel-report.pdf";
+  return { blob: await res.blob(), filename };
+}
+
+/** Hands a blob to the browser as a file download. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  // Revoked on the next tick so the download has started.
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;

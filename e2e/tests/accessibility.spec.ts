@@ -38,6 +38,10 @@ const pages: { path: (id: string) => string; ready: string | RegExp }[] = [
   { path: () => "/audit", ready: "Audit log" },
   { path: () => "/system", ready: "System" },
   { path: () => "/settings", ready: "Settings" },
+  { path: () => "/reports", ready: "Reports" },
+  { path: () => "/incidents?view=board", ready: "Incidents" },
+  { path: (id) => `/incidents/${id}?tab=graph`, ready: "Discovery → Credential access from 10.0.0.66" },
+  { path: () => "/assets/10.0.0.66", ready: "10.0.0.66" },
 ];
 
 test("the sign-in page has no serious accessibility violations", async ({ page }) => {
